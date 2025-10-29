@@ -1,15 +1,16 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { ArrowRight, Play } from 'lucide-react'
+import { ArrowRight,  Play } from 'lucide-react'
 import { motion } from 'framer-motion'
+import Link from 'next/link'
 
 export default function Hero() {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-primary-50 via-white to-accent-50">
       {/* Background Pattern */}
       <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
-      
+
       {/* Floating elements */}
       <motion.div
         className="absolute top-20 left-10 w-20 h-20 bg-primary-200 rounded-full blur-2xl"
@@ -77,7 +78,7 @@ export default function Hero() {
             transition={{ delay: 0.3 }}
             className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed"
           >
-            Create, manage, and share live scorecards for your local leagues and friendly matches. 
+            Create, manage, and share live scorecards for your local leagues and friendly matches.
             Professional scoring made simple.
           </motion.p>
 
@@ -88,14 +89,18 @@ export default function Hero() {
             transition={{ delay: 0.4 }}
             className="flex flex-col sm:flex-row gap-4 justify-center items-center"
           >
-            <Button size="lg" className="group">
-              Get Started
-              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </Button>
-            <Button variant="secondary" size="lg" className="group">
-              <Play className="mr-2 h-4 w-4" />
-              View Live Matches
-            </Button>
+            <Link href="/register">
+              <Button size="lg" className="group">
+                Get Started
+                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Button>
+            </Link>
+            <Link href="/login">
+              <Button variant="secondary" size="lg" className="group">
+                <Play className="mr-2 h-4 w-4" />
+                Sign In
+              </Button>
+            </Link>
           </motion.div>
 
           {/* Stats */}
