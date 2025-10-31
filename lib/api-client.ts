@@ -8,7 +8,6 @@ class ApiClient {
   }
 
   private async request(endpoint: string, options: RequestInit = {}) {
-    // No need for base URL since it's same origin
     const url = `/api${endpoint}`;
     
     const config: RequestInit = {
@@ -30,7 +29,6 @@ class ApiClient {
     return data;
   }
 
-  // Auth methods
   async login(email: string, password: string) {
     const response = await this.request('/auth/login', {
       method: 'POST',
@@ -53,7 +51,6 @@ class ApiClient {
     return response;
   }
 
-  // Match methods
   async createMatch(matchData: any) {
     return this.request('/matches', {
       method: 'POST',
@@ -65,11 +62,14 @@ class ApiClient {
     return this.request(`/matches/${id}`);
   }
 
-  async updateScore(matchId: string, scoreData: any) {
-    return this.request(`/matches/${matchId}/score`, {
-      method: 'POST',
-      body: JSON.stringify(scoreData),
-    });
+  async getUserMatches() {
+    return this.request('/matches');
+  }
+
+  logout() {
+    this.token = null;
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user');
   }
 }
 

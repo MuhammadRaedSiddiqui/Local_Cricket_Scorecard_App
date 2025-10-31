@@ -16,11 +16,9 @@ export async function GET(request: NextRequest, { params }: Params) {
     // Check if it's a 6-character code or MongoDB ID
     let match;
     if (id.length === 6) {
-      match = await Match.findOne({ matchCode: id.toUpperCase() })
-        .populate('createdBy', 'name email');
+      match = await Match.findOne({ matchCode: id.toUpperCase() });
     } else {
-      match = await Match.findById(id)
-        .populate('createdBy', 'name email');
+      match = await Match.findById(id);
     }
 
     if (!match) {
@@ -35,6 +33,7 @@ export async function GET(request: NextRequest, { params }: Params) {
       data: match
     });
   } catch (error) {
+    console.error('Get match error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch match' },
       { status: 500 }

@@ -14,6 +14,29 @@
   }
 }
 
+@media print {
+  /* Hide non-essential elements */
+  nav, header, .print\\:hidden {
+    display: none !important;
+  }
+  
+  /* Ensure colors print */
+  * {
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+  
+  /* Prevent page breaks in tables */
+  table {
+    page-break-inside: avoid;
+  }
+  
+  /* Add page margins */
+  @page {
+    margin: 1cm;
+  }
+}
+
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;

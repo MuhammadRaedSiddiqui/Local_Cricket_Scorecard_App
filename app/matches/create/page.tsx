@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { ArrowLeft, ArrowRight, Users, Trophy, Calendar, MapPin, Plus, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Users, Trophy, Calendar, MapPin, Plus, X, AlertCircle } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -46,36 +46,60 @@ export default function CreateMatchPage() {
   })
   const [team2PlayerInput, setTeam2PlayerInput] = useState('')
 
-  // Add player to team
+  // Add player to team with DUPLICATE CHECK
   const addPlayer = (team: 'team1' | 'team2') => {
     const input = team === 'team1' ? team1PlayerInput : team2PlayerInput
     const currentTeam = team === 'team1' ? team1 : team2
     
-    if (input.trim() && currentTeam.players.length < 11) {
-      const newPlayer: Player = {
-        name: input.trim(),
-        is_captain: currentTeam.players.length === 0, // First player is captain by default
-        is_keeper: currentTeam.players.length === 1   // Second player is keeper by default
-      }
-      
-      if (team === 'team1') {
-        setTeam1({ ...team1, players: [...team1.players, newPlayer] })
-        setTeam1PlayerInput('')
-      } else {
-        setTeam2({ ...team2, players: [...team2.players, newPlayer] })
-        setTeam2PlayerInput('')
-      }
+    // Trim and validate input
+    const playerName = input.trim()
+    
+    if (!playerName) {
+      toast.error('Please enter a player name')
+      return
+    }
+    
+    // Check if player limit reached
+    if (currentTeam.players.length >= 11) {
+      toast.error('Maximum 11 players allowed per team')
+      return
+    }
+    
+    // CHECK FOR DUPLICATE PLAYER NAMES
+    const isDuplicate = currentTeam.players.some(
+      player => player.name.toLowerCase() === playerName.toLowerCase()
+    )
+    
+    if (isDuplicate) {
+      toast.error(`Player "${playerName}" already exists in this team`)
+      return
+    }
+    
+    const newPlayer: Player = {
+      name: playerName,
+      is_captain: currentTeam.players.length === 0, // First player is captain by default
+      is_keeper: currentTeam.players.length === 1   // Second player is keeper by default
+    }
+    
+    if (team === 'team1') {
+      setTeam1({ ...team1, players: [...team1.players, newPlayer] })
+      setTeam1PlayerInput('')
+    } else {
+      setTeam2({ ...team2, players: [...team2.players, newPlayer] })
+      setTeam2PlayerInput('')
     }
   }
 
   // Remove player
   const removePlayer = (team: 'team1' | 'team2', index: number) => {
     if (team === 'team1') {
+      const playerName = team1.players[index].name
       setTeam1({
         ...team1,
         players: team1.players.filter((_, i) => i !== index)
       })
     } else {
+      const playerName = team2.players[index].name
       setTeam2({
         ...team2,
         players: team2.players.filter((_, i) => i !== index)
@@ -101,21 +125,50 @@ export default function CreateMatchPage() {
     }
   }
 
-  // Validate current step
+  // ENHANCED VALIDATION
   const validateStep = () => {
     if (step === 1) {
-      if (!matchData.venue || !matchData.startTime) {
-        toast.error('Please fill in all match details')
+      if (!matchData.venue.trim()) {
+        toast.error('Please enter a venue')
         return false
       }
-    } else if (step === 2) {
-      if (!team1.name || team1.players.length < 2) {
-        toast.error('Team 1 needs a name and at least 2 players')
+      if (!matchData.startTime) {
+        toast.error('Please select start time')
         return false
       }
-    } else if (step === 3) {
-      if (!team2.name || team2.players.length < 2) {
-        toast.error('Team 2 needs a name and at least 2 players')
+    } 
+    else if (step === 2) {
+      if (!team1.name.trim()) {
+        toast.error('Please enter Team 1 name')
+        return false
+      }
+      if (team1.players.length < 2) {
+        toast.error('Team 1 needs at least 2 players')
+        return false
+      }
+      const hasCaptain = team1.players.some(p => p.is_captain)
+      if (!hasCaptain) {
+        toast.error('Please select a captain for Team 1')
+        return false
+      }
+    } 
+    else if (step === 3) {
+      if (!team2.name.trim()) {
+        toast.error('Please enter Team 2 name')
+        return false
+      }
+      if (team2.players.length < 2) {
+        toast.error('Team 2 needs at least 2 players')
+        return false
+      }
+      // CHECK FOR DUPLICATE TEAM NAMES
+      if (team1.name.trim().toLowerCase() === team2.name.trim().toLowerCase()) {
+        toast.error('Teams cannot have the same name')
+        return false
+      }
+      const hasCaptain = team2.players.some(p => p.is_captain)
+      if (!hasCaptain) {
+        toast.error('Please select a captain for Team 2')
         return false
       }
     }
@@ -156,12 +209,17 @@ export default function CreateMatchPage() {
         throw new Error(data.error || 'Failed to create match')
       }
 
-      toast.success(`Match created! Code: ${data.data.matchCode}`)
+      toast.success(
+        <div className="flex flex-col">
+          <span>Match created successfully!</span>
+          <span className="font-bold text-lg">Code: {data.data.matchCode}</span>
+        </div>,
+        { duration: 5000 }
+      )
       
-      // Redirect to match page
       setTimeout(() => {
         router.push(`/matches/${data.data._id}`)
-      }, 1500)
+      }, 2000)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to create match')
       setLoading(false)
@@ -328,20 +386,26 @@ export default function CreateMatchPage() {
                         onChange={(e) => setTeam1({ ...team1, name: e.target.value })}
                         placeholder="e.g., Weekend Warriors"
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        maxLength={30}
                       />
                     </div>
 
                     {/* Add Players */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Add Players (min 2, max 11)
+                        Add Players ({team1.players.length}/11) - Min 2 required
                       </label>
                       <div className="flex gap-2">
                         <input
                           type="text"
                           value={team1PlayerInput}
                           onChange={(e) => setTeam1PlayerInput(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && addPlayer('team1')}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              addPlayer('team1')
+                            }
+                          }}
                           placeholder="Player name"
                           className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
                         />
@@ -451,20 +515,26 @@ export default function CreateMatchPage() {
                         onChange={(e) => setTeam2({ ...team2, name: e.target.value })}
                         placeholder="e.g., Sunday Strikers"
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        maxLength={30}
                       />
                     </div>
 
                     {/* Add Players */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Add Players (min 2, max 11)
+                        Add Players ({team2.players.length}/11) - Min 2 required
                       </label>
                       <div className="flex gap-2">
                         <input
                           type="text"
                           value={team2PlayerInput}
                           onChange={(e) => setTeam2PlayerInput(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && addPlayer('team2')}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              addPlayer('team2')
+                            }
+                          }}
                           placeholder="Player name"
                           className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
                         />
