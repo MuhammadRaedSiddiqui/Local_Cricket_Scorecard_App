@@ -19,14 +19,9 @@ export async function POST(request: NextRequest, { params }: Params) {
     const body = await request.json();
     const { match: updatedMatchData } = body;
     
-    console.log('🔥 API RECEIVED:', {
-      toss_winner: updatedMatchData.toss_winner,
-      toss_decision: updatedMatchData.toss_decision,
-      batting_team: updatedMatchData.batting_team,
-      bowling_team: updatedMatchData.bowling_team,
-    });
+    console.log('📊 Updating match:', params.id);
     
-    // 🔥 SIMPLIFIED - Just set everything directly
+    // Build update object with ALL fields
     const updateData: any = {
       status: updatedMatchData.status,
       toss_winner: updatedMatchData.toss_winner,
@@ -57,30 +52,22 @@ export async function POST(request: NextRequest, { params }: Params) {
       updateData['teamTwo.players'] = updatedMatchData.teamTwo.players;
     }
 
-    console.log('💾 UPDATING WITH:', updateData);
-
     const match = await Match.findByIdAndUpdate(
       params.id,
       { $set: updateData },
       { 
         new: true,
         runValidators: false,
-        strict: false  // 🔥 Allow fields not in schema
+        strict: false
       }
     );
 
     if (!match) {
+      console.error('❌ Match not found:', params.id);
       return NextResponse.json({ error: 'Match not found' }, { status: 404 });
     }
 
-    // 🔥 VERIFY what was actually saved
-    const verifyMatch = await Match.findById(params.id).lean();
-    console.log('✅ VERIFICATION FROM DB:', {
-      toss_winner: verifyMatch.toss_winner,
-      toss_decision: verifyMatch.toss_decision,
-      batting_team: verifyMatch.batting_team,
-      bowling_team: verifyMatch.bowling_team,
-    });
+    console.log('✅ Match updated successfully');
     
     return NextResponse.json({
       success: true,
@@ -88,20 +75,20 @@ export async function POST(request: NextRequest, { params }: Params) {
     });
 
   } catch (error: any) {
-    console.error('❌ API Error:', error);
+    console.error('❌ Update score error:', error);
     return NextResponse.json(
       { error: 'Failed to update score', details: error.message },
       { status: 500 }
     );
   }
 }
-// GET endpoint to check current score
+
 export async function GET(request: NextRequest, { params }: Params) {
   try {
     await connectDB();
-
+    
     const match = await Match.findById(params.id);
-
+    
     if (!match) {
       return NextResponse.json({ error: 'Match not found' }, { status: 404 });
     }
@@ -115,16 +102,14 @@ export async function GET(request: NextRequest, { params }: Params) {
           score: match.teamOne.total_score || 0,
           wickets: match.teamOne.total_wickets || 0,
           overs: `${Math.floor((match.teamOne.total_balls || 0) / 6)}.${(match.teamOne.total_balls || 0) % 6}`,
-          extras: match.teamOne.extras || 0,
-          players: match.teamOne.players // Include players in response
+          extras: match.teamOne.extras || 0
         },
         teamTwo: {
           name: match.teamTwo.name,
           score: match.teamTwo.total_score || 0,
           wickets: match.teamTwo.total_wickets || 0,
           overs: `${Math.floor((match.teamTwo.total_balls || 0) / 6)}.${(match.teamTwo.total_balls || 0) % 6}`,
-          extras: match.teamTwo.extras || 0,
-          players: match.teamTwo.players // Include players in response
+          extras: match.teamTwo.extras || 0
         },
         currentInnings: match.currentInnings,
         target: match.target

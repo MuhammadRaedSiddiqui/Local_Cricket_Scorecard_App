@@ -1,59 +1,7 @@
-import mongoose, { Schema, Document, Model } from 'mongoose';
+import mongoose from 'mongoose';
 import { customAlphabet } from 'nanoid';
 
 const generateMatchCode = customAlphabet('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', 6);
-
-export interface IPlayer {
-  name: string;
-  runs_scored: number;
-  balls_played: number;
-  dots: number;
-  fours: number;
-  sixes: number;
-  wickets: number;
-  balls_bowled: number;
-  runs_conceded: number;
-  maidens: number;
-  dot_balls: number;
-  is_captain: boolean;
-  is_keeper: boolean;
-  is_out: boolean;
-}
-
-export interface ITeam {
-  name: string;
-  players: IPlayer[];
-  total_score: number;
-  total_wickets: number;
-  total_overs: number;
-  extras: number;
-  total_balls: number;
-}
-
-export interface IMatch extends Document {
-  matchCode: string;
-  createdBy: mongoose.Types.ObjectId;
-  status: 'upcoming' | 'live' | 'completed';
-  startTime: Date;
-  venue: string;
-  overs: number;
-  teamOne: ITeam;
-  teamTwo: ITeam;
-  toss_decision: string;
-  toss_winner: string;
-  isPrivate: boolean;
-  admins: mongoose.Types.ObjectId[];
-  scorers: mongoose.Types.ObjectId[];
-  viewers: mongoose.Types.ObjectId[];
-  createdAt: Date;
-  updatedAt: Date;
-  batting_team: string;
-  bowling_team: string;
-  target: Number;
-  currentInnings: Number;
-}
-
-
 
 const playerSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -88,52 +36,26 @@ const matchSchema = new mongoose.Schema({
   startTime: { type: Date, required: true },
   venue: { type: String, required: true },
   overs: { type: Number, required: true },
-
+  
   teamOne: teamSchema,
   teamTwo: teamSchema,
-
-  // 🔥 ADD THESE FIELDS IF MISSING
+  
+  // Toss and match state fields
   toss_winner: { type: String, default: null },
   toss_decision: { type: String, default: null },
   batting_team: { type: String, default: null },
   bowling_team: { type: String, default: null },
   currentInnings: { type: Number, default: 1 },
   target: { type: Number, default: null },
-
+  
   isPrivate: { type: Boolean, default: false },
   admins: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   scorers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   viewers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  matchCode: { type: String, unique: true, required: true },
-  scoringState: {
-    type: {
-      selectedBatsman1: String,
-      selectedBatsman2: String,
-      selectedBowler: String,
-      currentStriker: {
-        type: String,
-        enum: ['batsman1', 'batsman2']
-      },
-      currentOver: [String],
-      outBatsmen: [String],
-      currentInnings: {
-        type: Number,
-        default: 1
-      },
-      extraRuns: {
-        type: Number,
-        default: 0
-      }
-    },
-    default: null
-  }
-
+  matchCode: { type: String, unique: true, default: () => generateMatchCode() },
 }, {
   timestamps: true,
-  strict: false  // 🔥 ADD THIS to allow fields not in schema
+  strict: false
 });
 
-
-const Match = (mongoose.models.Match as Model<IMatch>) || mongoose.model<IMatch>('Match', matchSchema);
-
-export default Match;
+export default mongoose.models.Match || mongoose.model('Match', matchSchema);
