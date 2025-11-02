@@ -4,6 +4,8 @@ import Match from '@/models/Match';
 import User from '@/models/User';
 import { verifyToken } from '@/lib/auth';
 
+
+
 // GET - Fetch user's matches
 export async function GET(request: NextRequest) {
   try {
@@ -14,22 +16,70 @@ export async function GET(request: NextRequest) {
 
     await connectDB();
 
+    // Matches created by user
     const createdMatches = await Match.find({ 
       createdBy: user.userId 
-    }).sort({ createdAt: -1 });
+    })
+    .sort({ createdAt: -1 })
+    .lean();
     
-    const joinedMatches = await Match.find({ 
-      viewers: user.userId 
-    }).sort({ createdAt: -1 });
+    // Matches where user is invited (admin, scorer, or viewer)
+    const invitedMatches = await Match.find({ 
+      $and: [
+        { createdBy: { $ne: user.userId } },
+        {
+          $or: [
+            { admins: user.userId },
+            { scorers: user.userId },
+            { viewers: user.userId }
+          ]
+        }
+      ]
+    })
+    .sort({ createdAt: -1 })
+    .lean();
+
+    // Format matches for easier display
+    const formatMatch = (match: any) => {
+      // Calculate total balls from players if total_balls doesn't exist
+      const calculateBalls = (team: any) => {
+        if (team.total_balls !== undefined && team.total_balls !== null) {
+          return team.total_balls;
+        }
+        // Sum up all players' balls_played
+        return team.players?.reduce((total: number, player: any) => {
+          return total + (player.balls_played || 0);
+        }, 0) || 0;
+      };
+
+      const teamOneBalls = calculateBalls(match.teamOne);
+      const teamTwoBalls = calculateBalls(match.teamTwo);
+
+      return {
+        ...match,
+        _id: match._id.toString(),
+        teamOne: {
+          ...match.teamOne,
+          total_balls: teamOneBalls,
+          overs: `${Math.floor(teamOneBalls / 6)}.${teamOneBalls % 6}`
+        },
+        teamTwo: {
+          ...match.teamTwo,
+          total_balls: teamTwoBalls,
+          overs: `${Math.floor(teamTwoBalls / 6)}.${teamTwoBalls % 6}`
+        }
+      };
+    };
 
     return NextResponse.json({
       success: true,
       data: {
-        created: createdMatches,
-        joined: joinedMatches
+        created: createdMatches.map(formatMatch),
+        invited: invitedMatches.map(formatMatch)
       }
     });
   } catch (error) {
+    console.error('Fetch matches error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch matches' },
       { status: 500 }

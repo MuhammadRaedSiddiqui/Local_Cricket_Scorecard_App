@@ -52,50 +52,100 @@ export default function ScoringPage() {
   }, [matchId])
 
   const fetchMatch = async () => {
-  try {
-    const token = localStorage.getItem('auth_token')
-    const response = await fetch(`/api/matches/${matchId}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
+    try {
+      const token = localStorage.getItem('auth_token')
+      const response = await fetch(`/api/matches/${matchId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        toast.error('Failed to load match')
+        router.push(`/matches/${matchId}`)
+        return
       }
-    })
 
-    if (!response.ok) {
+      const data = await response.json()
+      const matchData = data.data
+
+      // Initialize team scores
+      if (!matchData.teamOne.total_score) matchData.teamOne.total_score = 0
+      if (!matchData.teamOne.total_wickets) matchData.teamOne.total_wickets = 0
+      if (!matchData.teamOne.total_balls) matchData.teamOne.total_balls = 0
+      if (!matchData.teamOne.extras) matchData.teamOne.extras = 0
+      
+      if (!matchData.teamTwo.total_score) matchData.teamTwo.total_score = 0
+      if (!matchData.teamTwo.total_wickets) matchData.teamTwo.total_wickets = 0
+      if (!matchData.teamTwo.total_balls) matchData.teamTwo.total_balls = 0
+      if (!matchData.teamTwo.extras) matchData.teamTwo.extras = 0
+
+      setMatch(matchData)
+      
+      // Check if toss already happened
+      if (matchData.toss_winner && matchData.batting_team) {
+        setShowToss(false)
+        setBattingTeamName(matchData.batting_team)
+        setBowlingTeamName(matchData.bowling_team)
+        
+        // NEW: Restore scoring state from match data
+        restoreScoringState(matchData)
+      }
+    } catch (err) {
       toast.error('Failed to load match')
-      router.push(`/matches/${matchId}`)
-      return
+      console.error('Fetch match error:', err)
+    } finally {
+      setLoading(false)
     }
-
-    const data = await response.json()
-    const matchData = data.data
-
-    // Initialize team scores - FIXED SYNTAX
-    if (!matchData.teamOne.total_score) matchData.teamOne.total_score = 0
-    if (!matchData.teamOne.total_wickets) matchData.teamOne.total_wickets = 0
-    if (!matchData.teamOne.total_balls) matchData.teamOne.total_balls = 0
-    if (!matchData.teamOne.extras) matchData.teamOne.extras = 0
-    
-    if (!matchData.teamTwo.total_score) matchData.teamTwo.total_score = 0
-    if (!matchData.teamTwo.total_wickets) matchData.teamTwo.total_wickets = 0
-    if (!matchData.teamTwo.total_balls) matchData.teamTwo.total_balls = 0
-    if (!matchData.teamTwo.extras) matchData.teamTwo.extras = 0
-
-    setMatch(matchData)
-    
-    // Check if toss already happened (for resumed matches)
-    if (matchData.toss_winner && matchData.batting_team) {
-      setShowToss(false)
-      setShowPlayerSelection(true)
-      setBattingTeamName(matchData.batting_team)
-      setBowlingTeamName(matchData.bowling_team)
-    }
-  } catch (err) {
-    toast.error('Failed to load match')
-    console.error('Fetch match error:', err)
-  } finally {
-    setLoading(false)
   }
-}
+
+  // NEW FUNCTION: Restore the scoring state from saved match data
+  const restoreScoringState = (matchData: any) => {
+    const scoringState = matchData.scoringState
+    
+    console.log('Restoring scoring state:', scoringState) // Debug log
+    
+    if (scoringState) {
+      // Restore player selections FIRST
+      if (scoringState.selectedBatsman1) {
+        console.log('Restoring batsman1:', scoringState.selectedBatsman1)
+        setSelectedBatsman1(scoringState.selectedBatsman1)
+      }
+      if (scoringState.selectedBatsman2) {
+        console.log('Restoring batsman2:', scoringState.selectedBatsman2)
+        setSelectedBatsman2(scoringState.selectedBatsman2)
+      }
+      if (scoringState.selectedBowler) {
+        console.log('Restoring bowler:', scoringState.selectedBowler)
+        setSelectedBowler(scoringState.selectedBowler)
+      }
+      if (scoringState.currentStriker) setCurrentStriker(scoringState.currentStriker)
+      
+      // Restore scoring progress
+      if (scoringState.currentOver) setCurrentOver(scoringState.currentOver)
+      if (scoringState.outBatsmen) setOutBatsmen(scoringState.outBatsmen)
+      if (scoringState.currentInnings) setCurrentInnings(scoringState.currentInnings)
+      
+      // Check if players are selected in saved state
+      const hasPlayers = scoringState.selectedBatsman1 && 
+                         scoringState.selectedBatsman2 && 
+                         scoringState.selectedBowler
+      
+      console.log('Has players?', hasPlayers) // Debug log
+      
+      // Set player selection visibility based on saved state
+      if (hasPlayers) {
+        setShowPlayerSelection(false)
+        toast.success('Resumed from where you left off!')
+      } else {
+        setShowPlayerSelection(true)
+      }
+    } else {
+      console.log('No scoring state found')
+      // No saved state, show player selection
+      setShowPlayerSelection(true)
+    }
+  }
 
   const handleToss = () => {
     if (!tossWinner || !tossDecision) {
@@ -128,6 +178,9 @@ export default function ScoringPage() {
     setShowPlayerSelection(true)
     
     toast.success(`${tossWinner} won the toss and chose to ${tossDecision}`)
+    
+    // Save toss info immediately
+    saveMatchToServer(updatedMatch)
   }
 
   const getBattingTeam = () => {
@@ -144,11 +197,10 @@ export default function ScoringPage() {
     const battingTeam = getBattingTeam()
     if (!battingTeam) return []
     
-    // Filter out batsmen who are already out
     return battingTeam.players.filter((p: any) => !outBatsmen.includes(p.name))
   }
 
-  const startScoring = () => {
+  const startScoring = async () => {
     if (!selectedBatsman1 || !selectedBatsman2 || !selectedBowler) {
       toast.error('Please select both batsmen and bowler')
       return
@@ -161,6 +213,41 @@ export default function ScoringPage() {
 
     setShowPlayerSelection(false)
     toast.success('Scoring started!')
+    
+    // NEW: Save player selections immediately with explicit values
+    const updatedMatch = { ...match }
+    updatedMatch.scoringState = {
+      selectedBatsman1: selectedBatsman1,
+      selectedBatsman2: selectedBatsman2,
+      selectedBowler: selectedBowler,
+      currentStriker: currentStriker,
+      currentOver: currentOver,
+      outBatsmen: outBatsmen,
+      currentInnings: currentInnings,
+      extraRuns: 0
+    }
+    
+    console.log('Saving initial scoring state:', updatedMatch.scoringState) // Debug log
+    
+    setMatch(updatedMatch)
+    await saveMatchToServer(updatedMatch)
+  }
+
+  // NEW FUNCTION: Save current scoring state to match object
+  const saveScoringState = (updatedMatch: any, overrideState?: any) => {
+    updatedMatch.scoringState = {
+      selectedBatsman1: overrideState?.selectedBatsman1 ?? selectedBatsman1,
+      selectedBatsman2: overrideState?.selectedBatsman2 ?? selectedBatsman2,
+      selectedBowler: overrideState?.selectedBowler ?? selectedBowler,
+      currentStriker: overrideState?.currentStriker ?? currentStriker,
+      currentOver: overrideState?.currentOver ?? currentOver,
+      outBatsmen: overrideState?.outBatsmen ?? outBatsmen,
+      currentInnings: overrideState?.currentInnings ?? currentInnings,
+      extraRuns: overrideState?.extraRuns ?? extraRuns
+    }
+    
+    setMatch(updatedMatch)
+    saveMatchToServer(updatedMatch)
   }
 
   const recordBall = async (outcome: string) => {
@@ -176,7 +263,6 @@ export default function ScoringPage() {
     let ballCounts = true
     let shouldRotateStrike = false
 
-    // Calculate runs based on outcome
     switch (outcome) {
       case '0':
         runs = 0
@@ -185,13 +271,13 @@ export default function ScoringPage() {
       case '3':
       case '5':
         runs = parseInt(outcome)
-        shouldRotateStrike = true // Rotate on odd runs
+        shouldRotateStrike = true
         break
       case '2':
       case '4':
       case '6':
         runs = parseInt(outcome)
-        shouldRotateStrike = false // No rotation on even runs
+        shouldRotateStrike = false
         break
       case 'W':
         isWicket = true
@@ -200,23 +286,22 @@ export default function ScoringPage() {
         runs = 1 + extraRuns
         isExtra = true
         ballCounts = false
-        shouldRotateStrike = false // No strike change on wide
+        shouldRotateStrike = false
         break
       case 'NB':
         runs = 1 + extraRuns
         isExtra = true
         ballCounts = false
-        shouldRotateStrike = false // No strike change on no ball
+        shouldRotateStrike = false
         break
       case 'B':
       case 'LB':
         runs = extraRuns
         isExtra = true
-        shouldRotateStrike = (runs % 2 === 1) // Rotate only if odd bye runs
+        shouldRotateStrike = (runs % 2 === 1)
         break
     }
 
-    // Update match object
     const updatedMatch = { ...match }
     const teamToUpdate = battingTeamName === updatedMatch.teamOne.name ? 'teamOne' : 'teamTwo'
     
@@ -233,65 +318,76 @@ export default function ScoringPage() {
     if (isWicket) {
       updatedMatch[teamToUpdate].total_wickets += 1
       
-      // Add current striker to out batsmen list
       const outBatsman = currentStriker === 'batsman1' ? selectedBatsman1 : selectedBatsman2
-      setOutBatsmen([...outBatsmen, outBatsman])
+      const newOutBatsmen = [...outBatsmen, outBatsman]
+      setOutBatsmen(newOutBatsmen)
       
-      // Check if innings should end (all out or only 2 players)
       const battingTeam = getBattingTeam()
       const totalPlayers = battingTeam.players.length
       const wicketsDown = updatedMatch[teamToUpdate].total_wickets
       
-      // If all out OR if team has only 2 players and 1 wicket falls
       if (wicketsDown >= totalPlayers - 1 || (totalPlayers === 2 && wicketsDown >= 1)) {
         toast(`All out! ${battingTeam.name} innings complete`)
         handleInningsEnd(updatedMatch)
         return
       }
       
-      // Need to select next batsman
       toast('Select next batsman')
       setShowPlayerSelection(true)
       
-      // Reset the out batsman
+      // Prepare updated batsmen
+      let newBatsman1 = selectedBatsman1
+      let newBatsman2 = selectedBatsman2
+      
       if (currentStriker === 'batsman1') {
+        newBatsman1 = ''
         setSelectedBatsman1('')
       } else {
+        newBatsman2 = ''
         setSelectedBatsman2('')
       }
+      
+      // Save state immediately after wicket with updated values
+      const wicketOver = [...currentOver, outcome]
+      saveScoringState(updatedMatch, {
+        selectedBatsman1: newBatsman1,
+        selectedBatsman2: newBatsman2,
+        outBatsmen: newOutBatsmen,
+        currentOver: wicketOver
+      })
+      
+      return // Exit early to show player selection
     }
 
-    // Add to current over (for display)
     const newCurrentOver = [...currentOver, outcome]
     setCurrentOver(newCurrentOver)
 
-    // Check for over completion (count only legal deliveries)
     const legalBallsInOver = newCurrentOver.filter(b => !['WD', 'NB'].includes(b)).length
     
+    let newStriker = currentStriker
+    let newBowler = selectedBowler
+    let newOver = newCurrentOver
+    
     if (legalBallsInOver === 6) {
-      // Over complete
       toast.success('Over completed!')
+      newOver = []
+      newStriker = currentStriker === 'batsman1' ? 'batsman2' : 'batsman1'
+      newBowler = ''
       setCurrentOver([])
-      
-      // Rotate strike at end of over
-      setCurrentStriker(prev => prev === 'batsman1' ? 'batsman2' : 'batsman1')
-      
-      // TODO: Select new bowler
+      setCurrentStriker(newStriker)
       setSelectedBowler('')
       toast('Please select new bowler')
     } else if (shouldRotateStrike && !isWicket) {
-      // Rotate strike for odd runs (not on wicket)
-      setCurrentStriker(prev => prev === 'batsman1' ? 'batsman2' : 'batsman1')
+      newStriker = currentStriker === 'batsman1' ? 'batsman2' : 'batsman1'
+      setCurrentStriker(newStriker)
     }
 
-    // Check if innings complete (all overs bowled)
     const totalBalls = updatedMatch.overs * 6
     if (updatedMatch[teamToUpdate].total_balls >= totalBalls) {
       handleInningsEnd(updatedMatch)
       return
     }
 
-    // Check for target in second innings
     if (currentInnings === 2 && updatedMatch.target) {
       if (updatedMatch[teamToUpdate].total_score >= updatedMatch.target) {
         const wicketsLeft = 10 - updatedMatch[teamToUpdate].total_wickets
@@ -301,24 +397,31 @@ export default function ScoringPage() {
     }
 
     setMatch(updatedMatch)
-    setExtraRuns(0) // Reset extra runs after each ball
+    setExtraRuns(0)
     
-    // Save to server
-    await saveMatchToServer(updatedMatch)
+    // NEW: Save scoring state after each ball with updated values
+    saveScoringState(updatedMatch, {
+      currentOver: newOver,
+      currentStriker: newStriker,
+      selectedBowler: newBowler,
+      extraRuns: 0
+    })
   }
 
   const handleInningsEnd = (updatedMatch: any) => {
     if (currentInnings === 1) {
-      // First innings complete
       const teamToUpdate = battingTeamName === updatedMatch.teamOne.name ? 'teamOne' : 'teamTwo'
       updatedMatch.target = updatedMatch[teamToUpdate].total_score + 1
       
       toast.success(`First innings complete! Target: ${updatedMatch.target}`)
       
-      // Switch innings
-      setCurrentInnings(2)
-      setBattingTeamName(bowlingTeamName)
-      setBowlingTeamName(battingTeamName)
+      const newInnings = 2
+      const newBattingTeam = bowlingTeamName
+      const newBowlingTeam = battingTeamName
+      
+      setCurrentInnings(newInnings)
+      setBattingTeamName(newBattingTeam)
+      setBowlingTeamName(newBowlingTeam)
       
       // Reset for second innings
       setCurrentOver([])
@@ -328,8 +431,19 @@ export default function ScoringPage() {
       setSelectedBatsman2('')
       setSelectedBowler('')
       setCurrentStriker('batsman1')
+      
+      // NEW: Save innings change with reset state
+      saveScoringState(updatedMatch, {
+        selectedBatsman1: '',
+        selectedBatsman2: '',
+        selectedBowler: '',
+        currentStriker: 'batsman1',
+        currentOver: [],
+        outBatsmen: [],
+        currentInnings: newInnings,
+        extraRuns: 0
+      })
     } else {
-      // Match complete
       updatedMatch.status = 'completed'
       
       const battingTeamData = battingTeamName === updatedMatch.teamOne.name 
@@ -343,7 +457,9 @@ export default function ScoringPage() {
         toast.success('Match Tied!')
       }
       
-      // Redirect to match view after 3 seconds
+      // Clear scoring state on match completion
+      updatedMatch.scoringState = null
+      
       setTimeout(() => {
         router.push(`/matches/${matchId}`)
       }, 3000)
@@ -356,7 +472,7 @@ export default function ScoringPage() {
   const saveMatchToServer = async (updatedMatch: any) => {
     try {
       const token = localStorage.getItem('auth_token')
-      await fetch(`/api/matches/${matchId}/score`, {
+      const response = await fetch(`/api/matches/${matchId}/score`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -364,8 +480,15 @@ export default function ScoringPage() {
         },
         body: JSON.stringify({ match: updatedMatch })
       })
+      
+      if (!response.ok) {
+        throw new Error('Failed to save')
+      }
+      
+      console.log('Match saved successfully') // Debug log
     } catch (err) {
       console.error('Error saving match:', err)
+      toast.error('Failed to save match state')
     }
   }
 
@@ -484,7 +607,7 @@ export default function ScoringPage() {
             </Card>
           )}
 
-          {/* Score Display - Better UI */}
+          {/* Score Display */}
           {!showToss && (
             <div className="grid md:grid-cols-2 gap-4 mb-6">
               {/* Batting Team Card */}

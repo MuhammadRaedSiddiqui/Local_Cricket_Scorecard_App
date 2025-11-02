@@ -11,8 +11,9 @@ interface Player {
   fours?: number
   sixes?: number
   wickets?: number
-  overs_bowled?: number
-  runs_given?: number
+  balls_bowled?: number
+  dots?: number
+  runs_conceded?: number
   maidens?: number
   is_captain?: boolean
   is_keeper?: boolean
@@ -54,7 +55,7 @@ interface ScoreCardProps {
 
 export default function ScoreCard({ match, isLive = false, viewersCount = 2300 }: ScoreCardProps) {
   const [activeTeam, setActiveTeam] = useState<'teamOne' | 'teamTwo'>('teamOne')
-  console.log(match)
+  
 
   // Default static data for preview/demo
   const defaultTeams = {
@@ -123,14 +124,14 @@ export default function ScoreCard({ match, isLive = false, viewersCount = 2300 }
     }))
 
     const bowling = team.players
-      .filter(p => p.overs_bowled && p.overs_bowled > 0)
+      .filter(p => p.balls_bowled && p.balls_bowled > 0)
       .map(player => ({
         name: player.name,
-        overs: player.overs_bowled || 0,
+        overs: player.balls_bowled ? `${Math.floor(player.balls_bowled / 6)}.${player.balls_bowled % 6}` : '0.0',
         maidens: player.maidens || 0,
-        runs: player.runs_given || 0,
+        runs: player.runs_conceded || 0,
         wickets: player.wickets || 0,
-        economy: player.overs_bowled ? (player.runs_given || 0) / player.overs_bowled : 0
+        economy: player.balls_bowled ? (player.runs_conceded || 0) / player.balls_bowled : 0
       }))
 
     const yetToBat = team.players

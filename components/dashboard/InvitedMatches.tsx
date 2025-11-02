@@ -1,149 +1,283 @@
 'use client'
 
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Calendar, MapPin, Users, Eye, UserPlus, Tag } from 'lucide-react'
+import { Calendar, MapPin, Eye, Play, CheckCircle, Clock, Users, RefreshCw } from 'lucide-react'
 
-interface InvitedMatch {
-  id: string
-  team1: string
-  team2: string
-  status: 'upcoming' | 'live' | 'completed'
-  date: string
-  time: string
-  venue: string
-  invitedBy: string
-  matchCode: string
-  score?: {
-    team1: string
-    team2: string
-  }
+interface MatchData {
+  _id: string;
+  matchCode: string;
+  status: string;
+  venue: string;
+  startTime: string;
+  overs: number;
+  teamOne: {
+    name: string;
+    total_score?: number;
+    total_wickets?: number;
+    overs: string;
+  };
+  teamTwo: {
+    name: string;
+    total_score?: number;
+    total_wickets?: number;
+    overs: string;
+  };
+  isPrivate: boolean;
+  createdAt: string;
+  target?: number;
 }
 
-const invitedMatches: InvitedMatch[] = [
-  {
-    id: '1',
-    team1: 'Office Champions',
-    team2: 'Desk Warriors',
-    status: 'live',
-    date: 'Today',
-    time: '2:00 PM',
-    venue: 'Corporate Ground',
-    invitedBy: 'Rahul Singh',
-    matchCode: 'ABC123',
-    score: {
-      team1: '89/3 (10.2)',
-      team2: 'Yet to bat'
-    }
-  },
-  {
-    id: '2',
-    team1: 'Neighborhood XI',
-    team2: 'Street Legends',
-    status: 'upcoming',
-    date: 'Sunday',
-    time: '9:00 AM',
-    venue: 'Colony Park',
-    invitedBy: 'Ali Ahmed',
-    matchCode: 'XYZ789'
-  }
-]
+interface InvitedMatchesProps {
+  matches: MatchData[];
+  loading: boolean;
+  onRefresh: () => void;
+}
 
-export default function InvitedMatches() {
+export default function InvitedMatches({ matches = [], loading, onRefresh }: InvitedMatchesProps) {
+  const router = useRouter()
+  const [filter, setFilter] = useState<'all' | 'live' | 'upcoming' | 'completed'>('all')
+  
+  // Safe filtering with default empty array
+  const filteredMatches = filter === 'all' 
+    ? (matches || [])
+    : (matches || []).filter(match => match.status === filter)
+
+  const getStatusIcon = (status: string) => {
+    switch(status) {
+      case 'live':
+        return <Play className="h-4 w-4" />
+      case 'upcoming':
+        return <Clock className="h-4 w-4" />
+      case 'completed':
+        return <CheckCircle className="h-4 w-4" />
+      default:
+        return null
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch(status) {
+      case 'live':
+        return 'bg-red-100 text-red-700 border-red-200'
+      case 'upcoming':
+        return 'bg-blue-100 text-blue-700 border-blue-200'
+      case 'completed':
+        return 'bg-green-100 text-green-700 border-green-200'
+      default:
+        return 'bg-gray-100 text-gray-700'
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    const today = new Date()
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today'
+    } else if (date.toDateString() === tomorrow.toDateString()) {
+      return 'Tomorrow'
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday'
+    }
+    
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric'
+    })
+  }
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit'
+    })
+  }
+
+  if (loading) {
+    return (
+      <section className="mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Invited Matches</h2>
+            <p className="text-sm text-gray-500">Matches where you're a participant</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2].map((i) => (
+            <div key={i} className="animate-pulse">
+              <Card className="p-5 h-64 bg-gray-100"></Card>
+            </div>
+          ))}
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="mb-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Joined Matches</h2>
-          <p className="text-sm text-gray-500">Matches you've joined via invite code</p>
+          <h2 className="text-xl font-bold text-gray-900">Invited Matches</h2>
+          <p className="text-sm text-gray-500">Matches where you're a participant</p>
         </div>
         
-        <Button variant="secondary" className="sm:w-auto">
-          <UserPlus className="h-4 w-4 mr-2" />
-          Join New Match
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Filter Tabs */}
+          <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-xl">
+            {(['all', 'live', 'upcoming', 'completed'] as const).map((status) => (
+              <button
+                key={status}
+                onClick={() => setFilter(status)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium capitalize transition-all ${
+                  filter === status 
+                    ? 'bg-white text-gray-900 shadow-sm' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+          
+          {/* Refresh Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRefresh}
+            className="gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
-      {invitedMatches.length > 0 ? (
+      {filteredMatches.length === 0 ? (
+        <Card className="p-12 text-center">
+          <div className="max-w-md mx-auto">
+            <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+              <Users className="h-8 w-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {filter === 'all' ? 'No invited matches' : `No ${filter} matches`}
+            </h3>
+            <p className="text-gray-500">
+              {filter === 'all' 
+                ? "You haven't been invited to any matches yet." 
+                : `You don't have any ${filter} invited matches.`}
+            </p>
+          </div>
+        </Card>
+      ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {invitedMatches.map((match, index) => (
+          {filteredMatches.map((match, index) => (
             <motion.div
-              key={match.id}
+              key={match._id}
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: index * 0.1 }}
               whileHover={{ y: -4 }}
             >
               <Card className="p-5 hover:shadow-lg transition-all bg-white/80 backdrop-blur-sm border-gray-100">
-                {/* Invite Badge */}
+                {/* Status Badge */}
                 <div className="flex items-center justify-between mb-4">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium border border-purple-200">
-                    <Tag className="h-3.5 w-3.5" />
-                    <span>Code: {match.matchCode}</span>
+                  <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(match.status)}`}>
+                    {getStatusIcon(match.status)}
+                    <span className="capitalize">{match.status}</span>
+                    {match.status === 'live' && (
+                      <span className="ml-1 relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                      </span>
+                    )}
                   </div>
-                  {match.status === 'live' && (
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                    </span>
-                  )}
+                  <span className="text-xs font-mono text-gray-500">
+                    {match.matchCode}
+                  </span>
                 </div>
 
                 {/* Teams */}
                 <div className="space-y-3 mb-4">
                   <div>
                     <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-gray-900">{match.team1}</h3>
-                      {match.score && (
-                        <span className="text-sm font-medium text-gray-700">{match.score.team1}</span>
+                      <h3 className="font-semibold text-gray-900">{match.teamOne.name}</h3>
+                      {match.status !== 'upcoming' && (
+                        <span className="text-sm font-medium text-gray-700">
+                          {match.teamOne.total_score || 0}/{match.teamOne.total_wickets || 0}
+                        </span>
                       )}
                     </div>
+                    {match.status !== 'upcoming' && (
+                      <div className="text-xs text-gray-500 text-right">
+                        ({match.teamOne.overs} ov)
+                      </div>
+                    )}
+                    
                     <div className="text-center text-xs text-gray-400 my-1">vs</div>
+                    
                     <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-gray-900">{match.team2}</h3>
-                      {match.score && (
-                        <span className="text-sm font-medium text-gray-700">{match.score.team2}</span>
+                      <h3 className="font-semibold text-gray-900">{match.teamTwo.name}</h3>
+                      {match.status !== 'upcoming' && (
+                        <span className="text-sm font-medium text-gray-700">
+                          {match.teamTwo.total_score || 0}/{match.teamTwo.total_wickets || 0}
+                        </span>
                       )}
                     </div>
+                    {match.status !== 'upcoming' && (
+                      <div className="text-xs text-gray-500 text-right">
+                        ({match.teamTwo.overs} ov)
+                      </div>
+                    )}
                   </div>
                 </div>
+
+                {/* Target Display */}
+                {match.target && (
+                  <div className="mb-4 p-2 bg-blue-50 rounded-lg text-center">
+                    <span className="text-xs font-medium text-blue-700">
+                      Target: {match.target}
+                    </span>
+                  </div>
+                )}
 
                 {/* Match Details */}
                 <div className="space-y-2 mb-4 text-sm text-gray-600">
                   <div className="flex items-center gap-2">
-                    <Users className="h-3.5 w-3.5" />
-                    <span>Invited by {match.invitedBy}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
                     <Calendar className="h-3.5 w-3.5" />
-                    <span>{match.date} • {match.time}</span>
+                    <span>{formatDate(match.startTime)} • {formatTime(match.startTime)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <MapPin className="h-3.5 w-3.5" />
-                    <span>{match.venue}</span>
+                    <span className="truncate">{match.venue}</span>
                   </div>
                 </div>
 
                 {/* Actions */}
-                <Button variant="secondary" className="w-full">
-                  <Eye className="h-4 w-4 mr-1.5" />
-                  View Live Score
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="secondary" 
+                    className="flex-1"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      router.push(`/matches/${match._id}`)
+                    }}
+                  >
+                    <Eye className="h-4 w-4 mr-1.5" />
+                    View Match
+                  </Button>
+                </div>
               </Card>
             </motion.div>
           ))}
         </div>
-      ) : (
-        <Card className="p-12 text-center bg-gray-50/50 border-dashed border-gray-300">
-          <div className="text-6xl mb-4">🏏</div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No joined matches yet</h3>
-          <p className="text-sm text-gray-600 mb-4">Ask your friends for a match code to join their games</p>
-          <Button variant="secondary">
-            <UserPlus className="h-4 w-4 mr-2" />
-            Join a Match
-          </Button>
-        </Card>
       )}
     </section>
   )

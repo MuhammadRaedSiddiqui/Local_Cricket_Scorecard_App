@@ -16,10 +16,39 @@ interface User {
   email: string;
 }
 
+interface MatchData {
+  _id: string;
+  matchCode: string;
+  status: string;
+  venue: string;
+  startTime: string;
+  overs: number;
+  teamOne: {
+    name: string;
+    total_score: number;
+    total_wickets: number;
+    total_balls: number;
+    overs: string;
+  };
+  teamTwo: {
+    name: string;
+    total_score: number;
+    total_wickets: number;
+    total_balls: number;
+    overs: string;
+  };
+  isPrivate: boolean;
+  createdAt: string;
+  target?: number;
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [myMatches, setMyMatches] = useState<MatchData[]>([])
+  const [invitedMatches, setInvitedMatches] = useState<MatchData[]>([])
+  const [matchesLoading, setMatchesLoading] = useState(true)
 
   useEffect(() => {
     // Check if user is authenticated
@@ -46,17 +75,49 @@ export default function DashboardPage() {
     checkAuth()
   }, [router])
 
+  // Fetch matches when user is loaded
+  useEffect(() => {
+    if (user) {
+      fetchMatches()
+    }
+  }, [user])
+
+  const fetchMatches = async () => {
+    try {
+      setMatchesLoading(true)
+      const token = localStorage.getItem('auth_token')
+      
+      const response = await fetch('/api/matches', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch matches')
+      }
+
+      const data = await response.json()
+      
+      if (data.success) {
+        setMyMatches(data.data.created || [])
+        setInvitedMatches(data.data.invited || [])
+      }
+    } catch (error) {
+      console.error('Error fetching matches:', error)
+    } finally {
+      setMatchesLoading(false)
+    }
+  }
+
   const handleLogout = async () => {
     try {
-      // Call logout API
       await fetch('/api/auth/logout', { method: 'POST' })
     } catch (error) {
       console.error('Logout error:', error)
     } finally {
-      // Clear local storage
       localStorage.removeItem('auth_token')
       localStorage.removeItem('user')
-      // Redirect to login
       router.push('/login')
     }
   }
@@ -85,8 +146,18 @@ export default function DashboardPage() {
         <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-7xl">
           <WelcomeBanner userName={user.name} />
           <QuickActions />
-          <MyMatches />
-          <InvitedMatches />
+          
+          {/* Pass real data and loading state to components */}
+          <MyMatches 
+            matches={myMatches} 
+            loading={matchesLoading}
+            onRefresh={fetchMatches}
+          />
+          <InvitedMatches 
+            // matches={invitedMatches} 
+            // loading={matchesLoading}
+            // onRefresh={fetchMatches}
+          />
         </main>
 
         <Footer />

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { Plus, Link2, Trophy, Users } from 'lucide-react'
 import { useState } from 'react'
 import JoinMatchModal from './JoinMatchModel'
+import { useRouter } from 'next/navigation'
 
 const actions = [
   {
@@ -41,20 +42,21 @@ const actions = [
 ]
 
 export default function QuickActions() {
+  const router = useRouter()
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false)
 
   const handleAction = (action: string) => {
     switch(action) {
       case 'create':
         // Navigate to create match
-        console.log('Create match')
+        router.push('/matches/create')
         break
       case 'join':
         setIsJoinModalOpen(true)
         break
       case 'leaderboard':
         // Navigate to leaderboard
-        console.log('View leaderboard')
+        router.push('/leaderboard')
         break
       case 'invite':
         // Open share modal

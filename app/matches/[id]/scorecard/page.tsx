@@ -29,7 +29,7 @@ export default function ScorecardPage() {
   useEffect(() => {
     fetchMatch()
   }, [matchId])
-
+  
   const fetchMatch = async () => {
     try {
       const token = localStorage.getItem('auth_token')
@@ -44,7 +44,7 @@ export default function ScorecardPage() {
         router.push('/dashboard')
         return
       }
-
+      
       const data = await response.json()
       setMatch(data.data)
     } catch (err) {
