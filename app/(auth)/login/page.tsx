@@ -18,6 +18,25 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Frontend validation (TC004)
+    if (!formData.email.trim()) {
+      toast.error('Email is required')
+      return
+    }
+
+    // Email format validation (TC002)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(formData.email)) {
+      toast.error('Please enter a valid email address')
+      return
+    }
+
+    if (!formData.password) {
+      toast.error('Password is required')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -30,7 +49,9 @@ export default function LoginPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.error || 'Invalid credentials')
+        // Display backend validation errors (TC004, TC020)
+        const errorMessage = data.error || `Login failed (${res.status})`
+        throw new Error(errorMessage)
       }
 
       // Store token and user data
@@ -39,13 +60,9 @@ export default function LoginPage() {
       
       toast.success('Welcome back!')
       
-      // Redirect to dashboard
-      console.log('Redirecting to dashboard...')
+      // Redirect to dashboard (TC003) - Use router for proper navigation
       setTimeout(() => {
-        console.log('Pushing route...')
-        // router.push('/dashboard')
-        // router.replace('/dashboard')
-        window.location.href = '/dashboard'
+        router.push('/dashboard')
       }, 1000)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Login failed')
@@ -88,6 +105,8 @@ export default function LoginPage() {
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                   placeholder="you@example.com"
+                  aria-label="Email Address"
+                  aria-required="true"
                 />
               </div>
             </div>
@@ -106,6 +125,8 @@ export default function LoginPage() {
                   onChange={(e) => setFormData({...formData, password: e.target.value})}
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                   placeholder="••••••••"
+                  aria-label="Password"
+                  aria-required="true"
                 />
               </div>
             </div>

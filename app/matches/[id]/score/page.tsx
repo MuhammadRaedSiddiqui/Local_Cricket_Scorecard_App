@@ -1,653 +1,727 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { ArrowLeft, Circle, Download } from 'lucide-react'
+import toast, { Toaster } from 'react-hot-toast'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import {
-  ArrowLeft,
-  Circle,
-  Plus,
-  Minus,
-  Calendar,
-  MapPin,
-  Users,
-  Trophy,
-  Coins
-} from 'lucide-react'
-import toast, { Toaster } from 'react-hot-toast'
+import { apiCall, wait } from '@/utils/apiHelpers'
+import { logger } from '@/utils/debugLogger'
+import { TossForm } from './components/TossForm'
+import { PlayerSelectionForm } from './components/PlayerSelectionForm'
+import { ScoringInterface } from './components/ScoringInterface'
+import { BatsmanChangeForm } from './components/BatsmanSelectionForm'
+import { Match, Team, Player } from '@/types/match'
 
-export default function ScoringPage() {
+type MatchState = 'LOADING' | 'TOSS' | 'PLAYER_SELECTION' | 'SCORING' | 'ERROR'
+
+export default function SimplifiedScoringPage() {
   const params = useParams()
   const router = useRouter()
   const matchId = params.id as string
+  const hasLoaded = useRef(false)
 
-  const [match, setMatch] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-
-  // Toss state
-  const [showToss, setShowToss] = useState(false)
-  const [tossWinner, setTossWinner] = useState('')
-  const [tossDecision, setTossDecision] = useState<'bat' | 'bowl' | ''>('')
-
-  // Player selection
-  const [selectedBatsman1, setSelectedBatsman1] = useState<string>('')
-  const [selectedBatsman2, setSelectedBatsman2] = useState<string>('')
-  const [selectedBowler, setSelectedBowler] = useState<string>('')
-  const [currentStriker, setCurrentStriker] = useState<'batsman1' | 'batsman2'>('batsman1')
-  const [showPlayerSelection, setShowPlayerSelection] = useState(false)
+  // Core state
+  const [state, setState] = useState<MatchState>('LOADING')
+  const [match, setMatch] = useState<Match | null>(null)
+  const [error, setError] = useState<string>('')
 
   // Scoring state
-  const [extraRuns, setExtraRuns] = useState(0)
+  const [batsman1, setBatsman1] = useState('') // ✅ Changed from striker
+  const [batsman2, setBatsman2] = useState('') // ✅ Changed from nonStriker
+  const [bowler, setBowler] = useState('')
+  const [currentStriker, setCurrentStriker] = useState<'batsman1' | 'batsman2'>('batsman1') // ✅ New
   const [currentOver, setCurrentOver] = useState<string[]>([])
-  const [outBatsmen, setOutBatsmen] = useState<string[]>([])
+  const [score, setScore] = useState(0)
+  const [wickets, setWickets] = useState(0)
+  const [balls, setBalls] = useState(0)
+  const [outBatsmen, setOutBatsmen] = useState<string[]>([]) // ✅ New
 
-  // Innings state
-  const [currentInnings, setCurrentInnings] = useState(1)
-  const [battingTeamName, setBattingTeamName] = useState('')
-  const [bowlingTeamName, setBowlingTeamName] = useState('')
+  // UI control states
+  const [needsBowlerChange, setNeedsBowlerChange] = useState(false)
+  const [needsBatsmanChange, setNeedsBatsmanChange] = useState(false) // ✅ New
+  const [previousBowler, setPreviousBowler] = useState('')
+  const [outBatsman, setOutBatsman] = useState('') // ✅ New - which batsman is out
 
-  // Previous bowler tracking
-  const [previousBowler, setPreviousBowler] = useState<string>('')
-  const [replacingBatsman, setReplacingBatsman] = useState<'batsman1' | 'batsman2' | null>(null)
-  const [outBatsmanName, setOutBatsmanName] = useState<string>('')
-  const [onlySelectingBowler, setOnlySelectingBowler] = useState(false)
 
-  // Match end states
-  const [isInningsEnded, setIsInningsEnded] = useState(false)
-  const [isMatchEnded, setIsMatchEnded] = useState(false)
+    const [currentInnings, setCurrentInnings] = useState(1) // ✅ Add this
+
+  // Derived values
+  const battingTeam = getBattingTeam()
+  const bowlingTeam = getBowlingTeam()
+
+  function getBattingTeam(): Team | null {
+    if (!match || !match.batting_team) return null
+    return match.batting_team === match.teamOne.name
+      ? match.teamOne
+      : match.teamTwo
+  }
+
+  function getBowlingTeam(): Team | null {
+    if (!match || !match.bowling_team) return null
+    return match.bowling_team === match.teamOne.name
+      ? match.teamOne
+      : match.teamTwo
+  }
+
+  // ✅ Get available batsmen (not out)
+  // ✅ FIXED VERSION - Filter out both out players AND current batsmen
+  function getAvailableBatsmen(): Player[] {
+    if (!battingTeam) return []
+
+    return battingTeam.players.filter((p: Player) => {
+      // Exclude players who are out
+      if (outBatsmen.includes(p.name)) return false
+
+      // Exclude current batsmen (the one still batting)
+      if (p.name === batsman1 || p.name === batsman2) return false
+
+      return true
+    })
+  }
 
   useEffect(() => {
-    fetchMatch()
-  }, [matchId])
+    if (!hasLoaded.current) {
+      hasLoaded.current = true
+      loadMatch()
+    }
+  }, [])
 
-  const fetchMatch = async () => {
+  async function loadMatch() {
+    logger.info('PAGE', 'Loading match', { matchId })
+    setState('LOADING')
+
     try {
-      const token = localStorage.getItem('auth_token')
-      const response = await fetch(`/api/matches/${matchId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+      await wait(500)
 
-      if (!response.ok) {
-        toast.error('Failed to load match')
-        router.push(`/matches/${matchId}`)
-        return
-      }
+      const response = await apiCall<{ success: boolean; data: Match }>(
+        `/api/matches/${matchId}`,
+        { timeout: 5000 }
+      )
 
-      const data = await response.json()
-      const matchData = data.data
-
-      console.log('📥 Loading match:', {
-        status: matchData.status,
-        toss_winner: matchData.toss_winner,
-        batting_team: matchData.batting_team,
-        bowling_team: matchData.bowling_team,
-        teamOne_balls: matchData.teamOne.total_balls,
-        teamTwo_balls: matchData.teamTwo.total_balls
-      })
-
-      // Initialize team scores
-      if (!matchData.teamOne.total_score) matchData.teamOne.total_score = 0
-      if (!matchData.teamOne.total_wickets) matchData.teamOne.total_wickets = 0
-      if (!matchData.teamOne.total_balls) matchData.teamOne.total_balls = 0
-      if (!matchData.teamOne.extras) matchData.teamOne.extras = 0
-
-      if (!matchData.teamTwo.total_score) matchData.teamTwo.total_score = 0
-      if (!matchData.teamTwo.total_wickets) matchData.teamTwo.total_wickets = 0
-      if (!matchData.teamTwo.total_balls) matchData.teamTwo.total_balls = 0
-      if (!matchData.teamTwo.extras) matchData.teamTwo.extras = 0
-
+      const matchData = response.data
+      logger.info('PAGE', 'Match loaded', matchData)
       setMatch(matchData)
 
-      // Check if match is completed
-      if (matchData.status === 'completed') {
-        setIsMatchEnded(true)
-        toast('Match already completed')
-        setTimeout(() => router.push(`/matches/${matchId}`), 2000)
-        setLoading(false)
-        return
-      }
-
-      // Check if toss is done
-      const tossIsDone = !!(matchData.toss_winner && matchData.batting_team && matchData.bowling_team)
-
-      if (!tossIsDone) {
-        setShowToss(true)
-        setShowPlayerSelection(false)
-        setLoading(false)
-        return
-      }
-
-      // Toss is done, resume match
-      setShowToss(false)
-      setBattingTeamName(matchData.batting_team)
-      setBowlingTeamName(matchData.bowling_team)
-
-      // Determine which team is batting
-      const battingTeam = matchData.batting_team === matchData.teamOne.name
-        ? matchData.teamOne
-        : matchData.teamTwo
-
-      // Determine current innings
-      const teamOneBalls = matchData.teamOne.total_balls || 0
-      const teamTwoBalls = matchData.teamTwo.total_balls || 0
-
-      let innings = 1
-      let currentBattingTeam = matchData.batting_team
-      let currentBowlingTeam = matchData.bowling_team
-
-      if (matchData.batting_team === matchData.teamOne.name && teamOneBalls > 0 && teamTwoBalls > 0) {
-        innings = 2
-        currentBattingTeam = matchData.teamTwo.name
-        currentBowlingTeam = matchData.teamOne.name
-      } else if (matchData.batting_team === matchData.teamTwo.name && teamTwoBalls > 0 && teamOneBalls > 0) {
-        innings = 2
-        currentBattingTeam = matchData.teamOne.name
-        currentBowlingTeam = matchData.teamTwo.name
-      }
-
-      setCurrentInnings(innings)
-      setBattingTeamName(currentBattingTeam)
-      setBowlingTeamName(currentBowlingTeam)
-
-      // Get correct teams for current innings
-      const currentBattingTeamData = currentBattingTeam === matchData.teamOne.name
-        ? matchData.teamOne
-        : matchData.teamTwo
-
-      const currentBowlingTeamData = currentBowlingTeam === matchData.teamOne.name
-        ? matchData.teamOne
-        : matchData.teamTwo
-
-      // Find batsmen who are NOT out
-      const notOutBatsmen = currentBattingTeamData.players.filter((p: any) => !p.is_out)
-
-      const outPlayers = currentBattingTeamData.players
-        .filter((p: any) => p.is_out)
-        .map((p: any) => p.name)
-
-      setOutBatsmen(outPlayers)
-
-      // Find active bowlers
-      const activeBowlers = currentBowlingTeamData.players
-        .filter((p: any) => (p.balls_bowled || 0) > 0)
-        .sort((a: any, b: any) => (b.balls_bowled || 0) - (a.balls_bowled || 0))
-
-      // Resume logic based on match state
-      const teamTotalBalls = currentBattingTeamData.total_balls || 0
-
-      if (teamTotalBalls === 0) {
-        // No balls bowled - fresh start after toss
-        setShowPlayerSelection(true)
-        setLoading(false)
-      } else if (notOutBatsmen.length >= 2) {
-        // At least 2 batsmen available - resume with them
-        const sorted = [...notOutBatsmen].sort((a: any, b: any) => (b.balls_played || 0) - (a.balls_played || 0))
-
-        setSelectedBatsman1(sorted[0].name)
-        setSelectedBatsman2(sorted[1].name)
-
-        // Determine striker
-        if ((sorted[0].balls_played || 0) > (sorted[1].balls_played || 0)) {
-          setCurrentStriker('batsman1')
-        } else if ((sorted[1].balls_played || 0) > (sorted[0].balls_played || 0)) {
-          setCurrentStriker('batsman2')
-        } else {
-          setCurrentStriker('batsman1')
-        }
-
-        if (activeBowlers.length > 0) {
-          setSelectedBowler(activeBowlers[0].name)
-        }
-
-        setShowPlayerSelection(false)
-        setLoading(false)
-      } else if (notOutBatsmen.length === 1) {
-        // Only one batsman - need new one
-        setSelectedBatsman1(notOutBatsmen[0].name)
-        setSelectedBatsman2('')
-        setReplacingBatsman('batsman2')
-        setShowPlayerSelection(true)
-
-        if (activeBowlers.length > 0) {
-          setSelectedBowler(activeBowlers[0].name)
-        }
-
-        setLoading(false)
+      if (!matchData.toss_winner) {
+        logger.info('PAGE', 'No toss found, showing toss form')
+        setState('TOSS')
+      } else if (!matchData.batting_team) {
+        logger.warning('PAGE', 'Toss found but no batting team - data corruption')
+        setState('TOSS')
       } else {
-        // No batsmen available
-        setShowPlayerSelection(true)
-        setLoading(false)
+        const hasPlayers =
+          matchData.scoringState?.selectedBatsman1 &&
+          matchData.scoringState?.selectedBatsman2 &&
+          matchData.scoringState?.selectedBowler
+
+        if (!hasPlayers) {
+          logger.info('PAGE', 'Toss complete, no players, showing player selection')
+          setState('PLAYER_SELECTION')
+        } else {
+          logger.info('PAGE', 'Players found, restoring scoring state')
+
+          // ✅ Restore ALL state
+          setBatsman1(matchData.scoringState.selectedBatsman1)
+          setBatsman2(matchData.scoringState.selectedBatsman2)
+          setBowler(matchData.scoringState.selectedBowler)
+          setCurrentStriker(matchData.scoringState.currentStriker || 'batsman1') // ✅ Restore striker
+          setCurrentOver(matchData.scoringState.currentOver || [])
+          setOutBatsmen(matchData.scoringState.outBatsmen || []) // ✅ Restore out batsmen
+          setPreviousBowler(matchData.scoringState.previousBowler || '')
+          setCurrentInnings(matchData.scoringState.currentInnings || 1)
+
+          const team = getBattingTeamFromMatch(matchData)
+          if (team) {
+            setScore(team.total_score || 0)
+            setWickets(team.total_wickets || 0)
+            setBalls(team.total_balls || 0)
+          }
+
+          logger.debug('PAGE', 'State restored', {
+            batsman1: matchData.scoringState.selectedBatsman1,
+            batsman2: matchData.scoringState.selectedBatsman2,
+            bowler: matchData.scoringState.selectedBowler,
+            currentStriker: matchData.scoringState.currentStriker,
+            currentOver: matchData.scoringState.currentOver,
+            outBatsmen: matchData.scoringState.outBatsmen,
+            score: team?.total_score,
+          })
+
+          setState('SCORING')
+          toast.success('Match resumed!')
+        }
       }
-
-    } catch (err) {
-      toast.error('Failed to load match')
-      console.error('Fetch match error:', err)
-      setLoading(false)
+    } catch (err: any) {
+      logger.error('PAGE', 'Failed to load match', err)
+      setError(err.message || 'Failed to load match')
+      setState('ERROR')
+      toast.error(err.message || 'Failed to load match')
     }
   }
 
-  const handleToss = async () => {
-    if (!tossWinner || !tossDecision) {
-      toast.error('Please select toss winner and decision')
-      return
-    }
-
-    let battingTeam, bowlingTeam
-
-    if (tossDecision === 'bat') {
-      battingTeam = tossWinner
-      bowlingTeam = tossWinner === match.teamOne.name ? match.teamTwo.name : match.teamOne.name
-    } else {
-      bowlingTeam = tossWinner
-      battingTeam = tossWinner === match.teamOne.name ? match.teamTwo.name : match.teamOne.name
-    }
-
-    const updatedMatch = { ...match }
-    updatedMatch.toss_winner = tossWinner
-    updatedMatch.toss_decision = tossDecision
-    updatedMatch.batting_team = battingTeam
-    updatedMatch.bowling_team = bowlingTeam
-    updatedMatch.status = 'live'
-    updatedMatch.currentInnings = 1
-
-    setBattingTeamName(battingTeam)
-    setBowlingTeamName(bowlingTeam)
-    setMatch(updatedMatch)
-
-    const saved = await saveMatchToServer(updatedMatch)
-
-    if (saved) {
-      setShowToss(false)
-      setShowPlayerSelection(true)
-      toast.success(`${tossWinner} won the toss and chose to ${tossDecision}`)
-    } else {
-      toast.error('Failed to save toss - please try again')
-    }
+  function getBattingTeamFromMatch(matchData: Match): Team | null {
+    if (!matchData.batting_team) return null
+    return matchData.batting_team === matchData.teamOne.name
+      ? matchData.teamOne
+      : matchData.teamTwo
   }
 
-  const getBattingTeam = () => {
-    if (!match || !battingTeamName) return null
-    return battingTeamName === match.teamOne.name ? match.teamOne : match.teamTwo
-  }
+  async function handleTossComplete(winner: string, decision: 'bat' | 'bowl') {
+    logger.info('TOSS', 'Processing toss', { winner, decision })
 
-  const getBowlingTeam = () => {
-    if (!match || !bowlingTeamName) return null
-    return bowlingTeamName === match.teamOne.name ? match.teamOne : match.teamTwo
-  }
-
-  const getAvailableBatsmen = () => {
-    const battingTeam = getBattingTeam()
-    if (!battingTeam) return []
-    return battingTeam.players.filter((p: any) => !outBatsmen.includes(p.name))
-  }
-
-  const startScoring = () => {
-    if (onlySelectingBowler) {
-      if (!selectedBowler) {
-        toast.error('Please select a bowler')
-        return
-      }
-
-      if (selectedBowler === previousBowler) {
-        toast.error('Bowler cannot bowl consecutive overs')
-        return
-      }
-
-      setOnlySelectingBowler(false)
-      setShowPlayerSelection(false)
-      toast.success('New bowler selected!')
-      return
-    }
-
-    if (replacingBatsman) {
-      const newBatsman = replacingBatsman === 'batsman1' ? selectedBatsman1 : selectedBatsman2
-      const otherBatsman = replacingBatsman === 'batsman1' ? selectedBatsman2 : selectedBatsman1
-
-      if (!newBatsman) {
-        toast.error('Please select the new batsman')
-        return
-      }
-
-      if (newBatsman === otherBatsman) {
-        toast.error('Please select a different batsman')
-        return
-      }
-
-      setReplacingBatsman(null)
-      setOutBatsmanName('')
-      setShowPlayerSelection(false)
-      toast.success(`${newBatsman} is now batting!`)
-      return
-    }
-
-    if (!selectedBatsman1 || !selectedBatsman2 || !selectedBowler) {
-      toast.error('Please select both batsmen and bowler')
-      return
-    }
-
-    if (selectedBatsman1 === selectedBatsman2) {
-      toast.error('Please select different batsmen')
-      return
-    }
-
-    if (selectedBowler === previousBowler) {
-      toast.error('Bowler cannot bowl consecutive overs')
-      return
-    }
-
-    setShowPlayerSelection(false)
-    toast.success('Scoring started!')
-  }
-
-  const saveMatchToServer = async (updatedMatch: any) => {
     try {
-      const token = localStorage.getItem('auth_token')
-      const response = await fetch(`/api/matches/${matchId}/score`, {
+      if (!match) throw new Error('Match not loaded')
+
+      const battingTeam =
+        decision === 'bat'
+          ? winner
+          : winner === match.teamOne.name
+            ? match.teamTwo.name
+            : match.teamOne.name
+
+      const bowlingTeam =
+        decision === 'bowl'
+          ? winner
+          : winner === match.teamOne.name
+            ? match.teamTwo.name
+            : match.teamOne.name
+
+      logger.debug('TOSS', 'Calculated teams', { battingTeam, bowlingTeam })
+
+      await wait(1000)
+
+      await apiCall(`/api/matches/${matchId}/score`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+        body: {
+          toss_winner: winner,
+          toss_decision: decision,
+          batting_team: battingTeam,
+          bowling_team: bowlingTeam,
+          status: 'live',
         },
-        body: JSON.stringify({ match: updatedMatch })
+        timeout: 5000,
       })
 
-      return response.ok
-    } catch (err) {
-      console.error('Save error:', err)
-      return false
+      logger.success('TOSS', 'Toss saved to database')
+
+      setMatch({
+        ...match,
+        toss_winner: winner,
+        toss_decision: decision,
+        batting_team: battingTeam,
+        bowling_team: bowlingTeam,
+        status: 'live',
+      })
+
+      await wait(1000)
+
+      toast.success(`${winner} won the toss and chose to ${decision}`)
+
+      setState('PLAYER_SELECTION')
+    } catch (err: any) {
+      logger.error('TOSS', 'Failed to save toss', err)
+      toast.error(err.message || 'Failed to save toss')
+      throw err
     }
   }
 
-  const recordBall = async (outcome: string) => {
-    if (!match) return
+  async function handlePlayersSelected(
+  selectedBatsman1: string,
+  selectedBatsman2: string,
+  selectedBowler: string
+) {
+  logger.info('PLAYERS', 'Processing player selection', {
+    selectedBatsman1,
+    selectedBatsman2,
+    selectedBowler,
+  })
 
-    if (isMatchEnded || isInningsEnded) {
-      toast.error('Cannot update score - match/innings has ended')
-      return
-    }
+  try {
+    if (!match) throw new Error('Match not loaded')
 
-    const battingTeam = getBattingTeam()
-    const bowlingTeam = getBowlingTeam()
-    if (!battingTeam || !bowlingTeam) return
+    await wait(1000)
 
-    let runs = 0
-    let isWicket = false
-    let isExtra = false
-    let ballCounts = true
-    let shouldRotateStrike = false
+    await apiCall(`/api/matches/${matchId}/score`, {
+      method: 'POST',
+      body: {
+        scoringState: {
+          selectedBatsman1: selectedBatsman1,
+          selectedBatsman2: selectedBatsman2,
+          selectedBowler: selectedBowler,
+          currentStriker: 'batsman1',
+          currentOver: [],
+          outBatsmen: [],
+          currentInnings: currentInnings, // ✅ Use current innings
+          previousBowler: '',
+        },
+      },
+      timeout: 5000,
+    })
 
-    switch (outcome) {
-      case '0':
-        runs = 0
-        break
-      case '1':
-      case '3':
-      case '5':
-        runs = parseInt(outcome)
-        shouldRotateStrike = true
-        break
-      case '2':
-      case '4':
-      case '6':
-        runs = parseInt(outcome)
-        shouldRotateStrike = false
-        break
-      case 'W':
-        isWicket = true
-        break
-      case 'WD':
-        runs = 1 + extraRuns
-        isExtra = true
-        ballCounts = false
-        shouldRotateStrike = false
-        break
-      case 'NB':
-        runs = 1 + extraRuns
-        isExtra = true
-        ballCounts = false
-        shouldRotateStrike = false
-        break
-      case 'B':
-      case 'LB':
-        runs = extraRuns
-        isExtra = true
-        shouldRotateStrike = (runs % 2 === 1)
-        break
-    }
+    logger.success('PLAYERS', 'Players saved to database')
 
-    const updatedMatch = { ...match }
-    const teamToUpdate = battingTeamName === updatedMatch.teamOne.name ? 'teamOne' : 'teamTwo'
-    const bowlingTeamKey = bowlingTeamName === updatedMatch.teamOne.name ? 'teamOne' : 'teamTwo'
+    setBatsman1(selectedBatsman1)
+    setBatsman2(selectedBatsman2)
+    setBowler(selectedBowler)
+    setCurrentStriker('batsman1')
+    setCurrentOver([])
+    setOutBatsmen([])
 
-    const totalPlayers = updatedMatch[teamToUpdate].players.length
+    await wait(1000)
 
-    // Update batsman stats
-    const currentBatsmanName = currentStriker === 'batsman1' ? selectedBatsman1 : selectedBatsman2
-    const batsmanIndex = updatedMatch[teamToUpdate].players.findIndex(
-      (p: any) => p.name === currentBatsmanName
-    )
+    toast.success('Players selected! Start scoring')
 
-    if (batsmanIndex !== -1) {
-      if (ballCounts) {
-        updatedMatch[teamToUpdate].players[batsmanIndex].balls_played += 1
+    setState('SCORING')
+  } catch (err: any) {
+    logger.error('PLAYERS', 'Failed to save players', err)
+    toast.error(err.message || 'Failed to save players')
+    throw err
+  }
+}
+
+  async function handleBallRecorded(outcome: string) {
+    logger.info('BALL', `Recording ball: ${outcome}`)
+
+    try {
+      if (!match) throw new Error('Match not loaded')
+
+      let runs = 0
+      let isWicket = false
+      let isExtra = false
+      let ballCounts = true
+      let shouldRotateStrike = false // ✅ New
+
+      switch (outcome) {
+        case '0':
+          runs = 0
+          shouldRotateStrike = false
+          break
+        case '1':
+        case '3':
+        case '5':
+          runs = parseInt(outcome)
+          shouldRotateStrike = true // ✅ Odd runs rotate strike
+          break
+        case '2':
+        case '4':
+        case '6':
+          runs = parseInt(outcome)
+          shouldRotateStrike = false // ✅ Even runs don't rotate
+          break
+        case 'W':
+          isWicket = true
+          shouldRotateStrike = false
+          break
+        case 'WD':
+        case 'NB':
+        case 'B':
+        case 'LB':
+          runs = 1
+          isExtra = true
+          ballCounts = outcome !== 'WD' && outcome !== 'NB'
+          shouldRotateStrike = false // ✅ Simplified: no rotation on extras
+          break
       }
 
-      if (!['WD', 'NB', 'B', 'LB'].includes(outcome)) {
-        updatedMatch[teamToUpdate].players[batsmanIndex].runs_scored += runs
+      const newScore = score + runs
+      const newWickets = isWicket ? wickets + 1 : wickets
+      const newBalls = ballCounts ? balls + 1 : balls
+      const newCurrentOver = [...currentOver, outcome]
 
-        if (outcome === '4') {
-          updatedMatch[teamToUpdate].players[batsmanIndex].fours += 1
-        }
-        if (outcome === '6') {
-          updatedMatch[teamToUpdate].players[batsmanIndex].sixes += 1
-        }
-      }
+      setScore(newScore)
+      setWickets(newWickets)
+      setBalls(newBalls)
+      setCurrentOver(newCurrentOver)
 
+      // ✅ Handle wicket
+      // ✅ Handle wicket
       if (isWicket) {
-        updatedMatch[teamToUpdate].players[batsmanIndex].is_out = true
-      }
-    }
+        logger.info('BALL', 'Wicket fallen', {
+          striker: currentStriker,
+          outPlayer: currentStriker === 'batsman1' ? batsman1 : batsman2,
+        })
 
-    // Update bowler stats
-    const bowlerIndex = updatedMatch[bowlingTeamKey].players.findIndex(
-      (p: any) => p.name === selectedBowler
-    )
+        const dismissedBatsman =
+          currentStriker === 'batsman1' ? batsman1 : batsman2
+        const newOutBatsmen = [...outBatsmen, dismissedBatsman]
+        setOutBatsmen(newOutBatsmen)
+        setOutBatsman(dismissedBatsman)
 
-    if (bowlerIndex !== -1) {
-      const bowler = updatedMatch[bowlingTeamKey].players[bowlerIndex]
+        const newScore = score + runs
+        const newWickets = wickets + 1
+        const newBalls = balls + 1
+        const newCurrentOver = [...currentOver, outcome]
 
-      if (ballCounts) {
-        bowler.balls_bowled = (bowler.balls_bowled || 0) + 1
+        setScore(newScore)
+        setWickets(newWickets)
+        setBalls(newBalls)
+        setCurrentOver(newCurrentOver)
 
-        if (runs === 0 && !isWicket) {
-          bowler.dot_balls = (bowler.dot_balls || 0) + 1
+        // ✅ SAVE WICKET TO DATABASE FIRST
+        await wait(500)
+
+        const teamToUpdate =
+          match.batting_team === match.teamOne.name ? 'teamOne' : 'teamTwo'
+
+        await apiCall(`/api/matches/${matchId}/score`, {
+          method: 'POST',
+          body: {
+            [`${teamToUpdate}.total_score`]: newScore,
+            [`${teamToUpdate}.total_wickets`]: newWickets,
+            [`${teamToUpdate}.total_balls`]: newBalls,
+            scoringState: {
+              selectedBatsman1: batsman1,
+              selectedBatsman2: batsman2,
+              selectedBowler: bowler,
+              previousBowler: previousBowler,
+              currentStriker: currentStriker,
+              currentOver: newCurrentOver,
+              outBatsmen: newOutBatsmen,
+              currentInnings: 1,
+            },
+          },
+          timeout: 5000,
+        })
+
+        logger.success('BALL', 'Wicket saved to database')
+        toast.error(`Wicket! ${dismissedBatsman} is out`)
+
+        // ✅ NOW CHECK FOR ALL OUT (after saving)
+        const battingTeamPlayers = battingTeam?.players || []
+        const totalPlayers = battingTeamPlayers.length
+        const availableBatsmenCount = battingTeamPlayers.filter(
+          (p: Player) => !newOutBatsmen.includes(p.name)
+        ).length
+
+        logger.debug('BALL', 'All out check', {
+          totalPlayers,
+          wickets: newWickets,
+          outBatsmen: newOutBatsmen.length,
+          availableBatsmen: availableBatsmenCount,
+        })
+
+        // ✅ All out conditions
+        const isAllOut =
+          availableBatsmenCount === 0 || // No batsmen left
+          newWickets >= totalPlayers - 1 || // All wickets down
+          (totalPlayers === 2 && newWickets >= 1) // Special case: 2 players, 1 wicket
+
+        if (isAllOut) {
+          logger.info('BALL', 'All Out! Innings complete')
+          toast.error('All Out! Innings complete')
+
+          // ✅ Handle innings end properly
+          await handleInningsComplete(newScore, newWickets)
+          return
         }
-      }
 
-      if (!['B', 'LB'].includes(outcome)) {
-        bowler.runs_conceded = (bowler.runs_conceded || 0) + runs
-      }
-
-      if (isWicket) {
-        bowler.wickets = (bowler.wickets || 0) + 1
-      }
-    }
-
-    // Update team totals
-    updatedMatch[teamToUpdate].total_score += runs
-
-    if (isExtra) {
-      updatedMatch[teamToUpdate].extras += runs
-    }
-
-    if (ballCounts) {
-      updatedMatch[teamToUpdate].total_balls = (updatedMatch[teamToUpdate].total_balls || 0) + 1
-    }
-
-    if (isWicket) {
-      updatedMatch[teamToUpdate].total_wickets += 1
-
-      const outBatsman = currentStriker === 'batsman1' ? selectedBatsman1 : selectedBatsman2
-      setOutBatsmen([...outBatsmen, outBatsman])
-
-      const wicketsDown = updatedMatch[teamToUpdate].total_wickets
-
-      if (wicketsDown >= totalPlayers - 1 || (totalPlayers === 2 && wicketsDown >= 1)) {
-        toast(`All out! ${battingTeam.name} innings complete`)
-        setIsInningsEnded(true)
-        setMatch(updatedMatch)
-        await saveMatchToServer(updatedMatch)
-        handleInningsEnd(updatedMatch)
+        // ✅ Not all out - show batsman selection
+        setNeedsBatsmanChange(true)
         return
       }
 
-      setOutBatsmanName(outBatsman)
-      setReplacingBatsman(currentStriker)
-
-      if (currentStriker === 'batsman1') {
-        setSelectedBatsman1('')
-      } else {
-        setSelectedBatsman2('')
+      // ✅ Rotate strike if needed
+      let newStriker = currentStriker
+      if (shouldRotateStrike) {
+        newStriker = currentStriker === 'batsman1' ? 'batsman2' : 'batsman1'
+        setCurrentStriker(newStriker)
+        logger.debug('BALL', 'Strike rotated', {
+          from: currentStriker,
+          to: newStriker,
+        })
       }
 
-      toast(`${outBatsman} is out! Select next batsman`)
-      setShowPlayerSelection(true)
+      const legalBalls = newCurrentOver.filter(
+        (b) => !['WD', 'NB'].includes(b)
+      ).length
 
-      setMatch(updatedMatch)
-      setExtraRuns(0)
-      await saveMatchToServer(updatedMatch)
-      return
-    }
+      // ✅ Handle over completion
+      if (legalBalls === 6) {
+        logger.info('BALL', 'Over completed, need bowler change')
+        toast.success('Over completed! Select new bowler')
 
-    // Check for target in second innings
-    if (currentInnings === 2 && updatedMatch.target) {
-      if (updatedMatch[teamToUpdate].total_score >= updatedMatch.target) {
-        const wicketsLeft = totalPlayers - updatedMatch[teamToUpdate].total_wickets
-        toast.success(`${battingTeamName} won by ${wicketsLeft} wickets!`)
-        updatedMatch.status = 'completed'
-        setIsMatchEnded(true)
-        setMatch(updatedMatch)
-        await saveMatchToServer(updatedMatch)
+        // ✅ Rotate strike at end of over
+        const strikerAfterOver =
+          newStriker === 'batsman1' ? 'batsman2' : 'batsman1'
+        setCurrentStriker(strikerAfterOver)
 
-        setTimeout(() => {
-          router.push(`/matches/${matchId}`)
-        }, 3000)
+        setPreviousBowler(bowler)
+        setCurrentOver([])
+        setNeedsBowlerChange(true)
+
+        logger.debug('BALL', 'Strike rotated after over', {
+          newStriker: strikerAfterOver,
+        })
+
         return
       }
+
+      // ✅ Save normal ball
+      await wait(500)
+
+      const teamToUpdate =
+        match.batting_team === match.teamOne.name ? 'teamOne' : 'teamTwo'
+
+      await apiCall(`/api/matches/${matchId}/score`, {
+        method: 'POST',
+        body: {
+          [`${teamToUpdate}.total_score`]: newScore,
+          [`${teamToUpdate}.total_wickets`]: newWickets,
+          [`${teamToUpdate}.total_balls`]: newBalls,
+          scoringState: {
+            selectedBatsman1: batsman1,
+            selectedBatsman2: batsman2,
+            selectedBowler: bowler,
+            previousBowler: previousBowler,
+            currentStriker: newStriker, // ✅ Save new striker
+            currentOver: newCurrentOver,
+            outBatsmen: outBatsmen,
+            currentInnings: 1,
+          },
+        },
+        timeout: 5000,
+      })
+
+      logger.success('BALL', 'Ball saved to database')
+    } catch (err: any) {
+      logger.error('BALL', 'Failed to save ball', err)
+      toast.error(err.message || 'Failed to save ball')
+      throw err
     }
-
-    const newCurrentOver = [...currentOver, outcome]
-    setCurrentOver(newCurrentOver)
-
-    const legalBallsInOver = newCurrentOver.filter(b => !['WD', 'NB'].includes(b)).length
-
-    if (legalBallsInOver === 6) {
-      // Check for maiden over
-      if (bowlerIndex !== -1) {
-        const overRuns = newCurrentOver.reduce((total, ball) => {
-          if (ball === 'W' || ball === '0') return total
-          if (ball === 'WD' || ball === 'NB') return total + 1
-          return total + parseInt(ball)
-        }, 0)
-
-        if (overRuns === 0) {
-          updatedMatch[bowlingTeamKey].players[bowlerIndex].maidens =
-            (updatedMatch[bowlingTeamKey].players[bowlerIndex].maidens || 0) + 1
-          toast.success(`Maiden over by ${selectedBowler}! 🎯`)
-        }
-      }
-
-      toast.success('Over completed!')
-
-      const newStriker = currentStriker === 'batsman1' ? 'batsman2' : 'batsman1'
-      setCurrentStriker(newStriker)
-      setCurrentOver([])
-
-      setPreviousBowler(selectedBowler)
-      setSelectedBowler('')
-      setOnlySelectingBowler(true)
-
-      toast(`Strike changed to ${newStriker === 'batsman1' ? selectedBatsman1 : selectedBatsman2}`)
-      setShowPlayerSelection(true)
-
-      setMatch(updatedMatch)
-      await saveMatchToServer(updatedMatch)
-      return
-    } else if (shouldRotateStrike && !isWicket) {
-      setCurrentStriker(prev => prev === 'batsman1' ? 'batsman2' : 'batsman1')
-    }
-
-    const totalBalls = updatedMatch.overs * 6
-    if (updatedMatch[teamToUpdate].total_balls >= totalBalls) {
-      setIsInningsEnded(true)
-      setMatch(updatedMatch)
-      await saveMatchToServer(updatedMatch)
-      handleInningsEnd(updatedMatch)
-      return
-    }
-
-    setMatch(updatedMatch)
-    setExtraRuns(0)
-
-    await saveMatchToServer(updatedMatch)
   }
 
-  const handleInningsEnd = (updatedMatch: any) => {
+
+  async function handleInningsComplete(finalScore: number, finalWickets: number) {
+  logger.info('INNINGS', 'Innings completed', {
+    score: finalScore,
+    wickets: finalWickets,
+    currentInnings,
+  })
+
+  try {
+    if (!match) throw new Error('Match not loaded')
+
+    const teamToUpdate =
+      match.batting_team === match.teamOne.name ? 'teamOne' : 'teamTwo'
+
+    // ✅ Check if this is first or second innings
     if (currentInnings === 1) {
-      const teamToUpdate = battingTeamName === updatedMatch.teamOne.name ? 'teamOne' : 'teamTwo'
-      updatedMatch.target = updatedMatch[teamToUpdate].total_score + 1
+      // ✅ First innings complete - start second innings
+      const target = finalScore + 1
 
-      toast.success(`First innings complete! Target: ${updatedMatch.target}`)
+      logger.info('INNINGS', 'First innings complete, setting target', {
+        target,
+      })
 
-      setCurrentInnings(2)
-      updatedMatch.currentInnings = 2
-      setBattingTeamName(bowlingTeamName)
-      setBowlingTeamName(battingTeamName)
+      // Swap teams
+      const newBattingTeam = match.bowling_team!
+      const newBowlingTeam = match.batting_team!
 
+      await wait(1000)
+
+      // Update match with target and reset for second innings
+      await apiCall(`/api/matches/${matchId}/score`, {
+        method: 'POST',
+        body: {
+          target: target,
+          scoringState: {
+            selectedBatsman1: '',
+            selectedBatsman2: '',
+            selectedBowler: '',
+            previousBowler: '',
+            currentStriker: 'batsman1',
+            currentOver: [],
+            outBatsmen: [],
+            currentInnings: 2,
+          },
+        },
+        timeout: 5000,
+      })
+
+      logger.success('INNINGS', 'Target set, second innings ready')
+
+      toast.success(`First innings complete! Target: ${target}`, {
+        duration: 4000,
+      })
+
+      // Update local state
+      setMatch({
+        ...match,
+        target: target,
+        batting_team: newBattingTeam,
+        bowling_team: newBowlingTeam,
+      })
+
+      // Reset for second innings
+      setBatsman1('')
+      setBatsman2('')
+      setBowler('')
+      setCurrentStriker('batsman1')
       setCurrentOver([])
       setOutBatsmen([])
-      setShowPlayerSelection(true)
-      setSelectedBatsman1('')
-      setSelectedBatsman2('')
-      setSelectedBowler('')
-      setCurrentStriker('batsman1')
-
       setPreviousBowler('')
-      setReplacingBatsman(null)
-      setOnlySelectingBowler(false)
-      setOutBatsmanName('')
+      setScore(0)
+      setWickets(0)
+      setBalls(0)
 
-      setIsInningsEnded(false)
+      await wait(2000)
+
+      // Show player selection for second innings
+      setState('PLAYER_SELECTION')
+      toast('Select opening batsmen and bowler for second innings')
     } else {
-      updatedMatch.status = 'completed'
-      setIsMatchEnded(true)
+      // ✅ Second innings complete - match over
+      logger.info('INNINGS', 'Second innings complete - match over')
 
-      const battingTeamData = battingTeamName === updatedMatch.teamOne.name
-        ? updatedMatch.teamOne
-        : updatedMatch.teamTwo
+      await wait(1000)
 
-      const totalPlayers = battingTeamData.players.length
+      // Determine winner
+      const target = match.target || 0
+      let winMessage = ''
 
-      if (battingTeamData.total_score < updatedMatch.target - 1) {
-        const runDiff = updatedMatch.target - 1 - battingTeamData.total_score
-        toast.success(`${bowlingTeamName} won by ${runDiff} runs!`)
-      } else if (battingTeamData.total_score === updatedMatch.target - 1) {
-        toast.success('Match Tied!')
+      if (finalScore >= target) {
+        const wicketsLeft = (battingTeam?.players.length || 10) - finalWickets
+        winMessage = `${match.batting_team} won by ${wicketsLeft} wickets!`
+      } else {
+        const runDiff = target - 1 - finalScore
+        winMessage = `${match.bowling_team} won by ${runDiff} runs!`
       }
 
-      setTimeout(() => {
-        router.push(`/matches/${matchId}`)
-      }, 3000)
+      // Mark match as completed
+      await apiCall(`/api/matches/${matchId}/score`, {
+        method: 'POST',
+        body: {
+          status: 'completed',
+          scoringState: null, // Clear scoring state
+        },
+        timeout: 5000,
+      })
+
+      logger.success('MATCH', 'Match completed', { winner: winMessage })
+
+      toast.success(winMessage, { duration: 5000 })
+
+      await wait(3000)
+
+      // Redirect to match details
+      router.push(`/matches/${matchId}`)
+    }
+  } catch (err: any) {
+    logger.error('INNINGS', 'Failed to handle innings end', err)
+    toast.error(err.message || 'Failed to end innings')
+  }
+}
+
+
+  async function handleBowlerChange(newBowler: string) {
+    logger.info('BOWLER', 'Changing bowler', { from: bowler, to: newBowler })
+
+    if (newBowler === previousBowler) {
+      toast.error('Bowler cannot bowl consecutive overs!')
+      return
     }
 
-    setMatch(updatedMatch)
-    saveMatchToServer(updatedMatch)
+    try {
+      setBowler(newBowler)
+      setNeedsBowlerChange(false)
+
+      await wait(500)
+
+      await apiCall(`/api/matches/${matchId}/score`, {
+        method: 'POST',
+        body: {
+          scoringState: {
+            selectedBatsman1: batsman1,
+            selectedBatsman2: batsman2,
+            selectedBowler: newBowler,
+            previousBowler: bowler,
+            currentStriker: currentStriker, // ✅ Preserve striker
+            currentOver: [],
+            outBatsmen: outBatsmen,
+            currentInnings: 1,
+          },
+        },
+        timeout: 5000,
+      })
+
+      logger.success('BOWLER', 'Bowler changed successfully')
+      toast.success(`${newBowler} to bowl next over`)
+    } catch (err: any) {
+      logger.error('BOWLER', 'Failed to change bowler', err)
+      toast.error(err.message || 'Failed to change bowler')
+    }
   }
 
-  if (loading) {
+  async function handleBatsmanChange(newBatsman: string) {
+    logger.info('BATSMAN', 'Changing batsman', {
+      out: outBatsman,
+      new: newBatsman,
+      currentStriker,
+      batsman1,
+      batsman2,
+    })
+
+    try {
+      // ✅ Calculate new values BEFORE setting state
+      const newBatsman1 = currentStriker === 'batsman1' ? newBatsman : batsman1
+      const newBatsman2 = currentStriker === 'batsman2' ? newBatsman : batsman2
+
+      // ✅ Validation: Prevent duplicate
+      if (newBatsman1 === newBatsman2) {
+        logger.error('BATSMAN', 'Duplicate batsman detected!', {
+          newBatsman1,
+          newBatsman2,
+        })
+        toast.error('Error: Same player cannot bat in both positions!')
+        return
+      }
+
+      logger.debug('BATSMAN', 'New lineup', {
+        newBatsman1,
+        newBatsman2,
+      })
+
+      // ✅ Update state
+      setBatsman1(newBatsman1)
+      setBatsman2(newBatsman2)
+      setNeedsBatsmanChange(false)
+
+      await wait(500)
+
+      // ✅ Save with calculated values (not state variables)
+      await apiCall(`/api/matches/${matchId}/score`, {
+        method: 'POST',
+        body: {
+          scoringState: {
+            selectedBatsman1: newBatsman1, // ✅ Use calculated value
+            selectedBatsman2: newBatsman2, // ✅ Use calculated value
+            selectedBowler: bowler,
+            previousBowler: previousBowler,
+            currentStriker: currentStriker,
+            currentOver: currentOver,
+            outBatsmen: outBatsmen,
+            currentInnings: 1,
+          },
+        },
+        timeout: 5000,
+      })
+
+      logger.success('BATSMAN', 'New batsman saved successfully', {
+        savedBatsman1: newBatsman1,
+        savedBatsman2: newBatsman2,
+      })
+
+      toast.success(`${newBatsman} is in to bat`)
+    } catch (err: any) {
+      logger.error('BATSMAN', 'Failed to change batsman', err)
+      toast.error(err.message || 'Failed to change batsman')
+    }
+  }
+
+  // Render states
+  if (state === 'LOADING') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -658,10 +732,24 @@ export default function ScoringPage() {
     )
   }
 
+  if (state === 'ERROR') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="p-6 max-w-md">
+          <h2 className="text-xl font-bold text-red-600 mb-4">Error</h2>
+          <p className="text-gray-700 mb-4">{error}</p>
+          <Button onClick={loadMatch} className="w-full">
+            Retry
+          </Button>
+        </Card>
+      </div>
+    )
+  }
+
   if (!match) return null
 
-  const battingTeam = getBattingTeam()
-  const bowlingTeam = getBowlingTeam()
+  const strikerName = currentStriker === 'batsman1' ? batsman1 : batsman2
+  const nonStrikerName = currentStriker === 'batsman1' ? batsman2 : batsman1
 
   return (
     <>
@@ -681,322 +769,168 @@ export default function ScoringPage() {
               </button>
 
               <div className="flex items-center gap-3">
-                <span className="font-mono font-bold text-lg">{match.matchCode}</span>
+                <span className="font-mono font-bold text-lg">
+                  {match.matchCode}
+                </span>
                 {match.status === 'live' && (
                   <div className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">
                     <Circle className="h-3 w-3 fill-current animate-pulse" />
                     LIVE
                   </div>
                 )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => logger.downloadLogs()}
+                >
+                  <Download className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="container mx-auto px-4 py-6 max-w-5xl">
-          {/* Toss Section */}
-          {showToss && (
-            <Card className="p-6 mb-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Coins className="h-6 w-6 text-yellow-600" />
-                <h2 className="text-xl font-bold">Toss</h2>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-4 mb-4">
+        <div className="container mx-auto px-4 py-6 max-w-4xl">
+          {/* Debug Info */}
+          {process.env.NODE_ENV === 'development' && (
+            <Card className="p-4 mb-4 bg-gray-50">
+              <div className="text-xs font-mono space-y-1">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Who won the toss?</label>
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                      <input
-                        type="radio"
-                        name="toss"
-                        value={match.teamOne.name}
-                        onChange={(e) => setTossWinner(e.target.value)}
-                        className="text-green-600"
-                      />
-                      <span className="font-medium">{match.teamOne.name}</span>
-                    </label>
-                    <label className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                      <input
-                        type="radio"
-                        name="toss"
-                        value={match.teamTwo.name}
-                        onChange={(e) => setTossWinner(e.target.value)}
-                        className="text-green-600"
-                      />
-                      <span className="font-medium">{match.teamTwo.name}</span>
-                    </label>
-                  </div>
+                  <strong>State:</strong> {state}
                 </div>
-
+                <div className={batsman1 === batsman2 ? 'text-red-600 font-bold' : ''}>
+                  <strong>Batsman1:</strong> {batsman1 || 'none'}{' '}
+                  {currentStriker === 'batsman1' && '(ON STRIKE)'}
+                  {batsman1 === batsman2 && ' ⚠️ DUPLICATE!'}
+                </div>
+                <div className={batsman1 === batsman2 ? 'text-red-600 font-bold' : ''}>
+                  <strong>Batsman2:</strong> {batsman2 || 'none'}{' '}
+                  {currentStriker === 'batsman2' && '(ON STRIKE)'}
+                  {batsman1 === batsman2 && ' ⚠️ DUPLICATE!'}
+                </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Decision?</label>
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                      <input
-                        type="radio"
-                        name="decision"
-                        value="bat"
-                        onChange={(e) => setTossDecision(e.target.value as 'bat' | 'bowl')}
-                        className="text-green-600"
-                      />
-                      <span className="font-medium">Bat First</span>
-                    </label>
-                    <label className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                      <input
-                        type="radio"
-                        name="decision"
-                        value="bowl"
-                        onChange={(e) => setTossDecision(e.target.value as 'bat' | 'bowl')}
-                        className="text-green-600"
-                      />
-                      <span className="font-medium">Bowl First</span>
-                    </label>
-                  </div>
+                  <strong>Bowler:</strong> {bowler || 'none'}
+                </div>
+                <div>
+                  <strong>Score:</strong> {score}/{wickets} ({balls} balls)
+                </div>
+                <div>
+                  <strong>Out:</strong> [{outBatsmen.join(', ')}]
+                </div>
+                <div>
+                  <strong>Available:</strong> {getAvailableBatsmen().map(p => p.name).join(', ')}
                 </div>
               </div>
-
-              <Button
-                onClick={handleToss}
-                className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
-              >
-                Start Match
-              </Button>
             </Card>
           )}
 
-          {/* Score Display - Better UI */}
-          {!showToss && (
+          {/* Score Display */}
+          {state === 'SCORING' && battingTeam && bowlingTeam && (
             <div className="grid md:grid-cols-2 gap-4 mb-6">
-              {/* Batting Team Card */}
               <Card className="p-6 bg-gradient-to-br from-green-500 to-green-600 text-white">
-                <div className="flex items-center gap-2 mb-3">
-                  <Trophy className="h-5 w-5" />
-                  <h3 className="text-sm font-medium opacity-90">BATTING</h3>
+                <h3 className="text-sm font-medium opacity-90 mb-2">BATTING</h3>
+                <h2 className="text-2xl font-bold mb-2">{battingTeam.name}</h2>
+                <div className="text-4xl font-bold">
+                  {score}/{wickets}
                 </div>
-                <h2 className="text-2xl font-bold mb-2">{battingTeam?.name}</h2>
-                <div className="text-4xl font-bold mb-2">
-                  {battingTeam?.total_score || 0}/{battingTeam?.total_wickets || 0}
-                </div>
-                <p className="text-sm opacity-90">
-                  Overs: {Math.floor((battingTeam?.total_balls || 0) / 6)}.{(battingTeam?.total_balls || 0) % 6}
-                  {battingTeam?.extras > 0 && ` • Extras: ${battingTeam.extras}`}
+                <p className="text-sm opacity-90 mt-2">
+                  Overs: {Math.floor(balls / 6)}.{balls % 6}
                 </p>
-                {currentInnings === 2 && match.target && (
-                  <div className="mt-3 pt-3 border-t border-white/30">
-                    <p className="text-sm">Target: {match.target}</p>
-                    <p className="text-lg font-bold">
-                      Need {Math.max(0, match.target - (battingTeam?.total_score || 0))} runs
-                    </p>
-                  </div>
-                )}
               </Card>
 
-              {/* Bowling Team Card */}
               <Card className="p-6 bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-                <div className="flex items-center gap-2 mb-3">
-                  <Users className="h-5 w-5" />
-                  <h3 className="text-sm font-medium opacity-90">BOWLING</h3>
-                </div>
-                <h2 className="text-2xl font-bold mb-4">{bowlingTeam?.name}</h2>
-                {currentInnings === 1 && (
-                  <p className="text-sm opacity-90">First Innings</p>
-                )}
-                {currentInnings === 2 && (
-                  <div>
-                    <p className="text-sm opacity-90">Second Innings</p>
-                    <p className="text-lg font-bold mt-2">
-                      Defending {match.target} runs
-                    </p>
-                  </div>
-                )}
+                <h3 className="text-sm font-medium opacity-90 mb-2">BOWLING</h3>
+                <h2 className="text-2xl font-bold">{bowlingTeam.name}</h2>
               </Card>
             </div>
           )}
 
-          {/* Current Over */}
-          {currentOver.length > 0 && (
-            <Card className="p-4 mb-6">
-              <p className="text-sm font-medium mb-2">This Over:</p>
-              <div className="flex gap-2">
-                {currentOver.map((ball, i) => (
-                  <span
-                    key={i}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white
-                      ${ball === 'W' ? 'bg-red-500' :
-                        ball === '4' ? 'bg-blue-500' :
-                          ball === '6' ? 'bg-purple-500' :
-                            ball === 'WD' || ball === 'NB' ? 'bg-yellow-500' :
-                              'bg-gray-400'}`}
-                  >
-                    {ball}
-                  </span>
-                ))}
-              </div>
-            </Card>
+          {/* Render current state */}
+          {state === 'TOSS' && (
+            <TossForm
+              teamOneName={match.teamOne.name}
+              teamTwoName={match.teamTwo.name}
+              onTossComplete={handleTossComplete}
+            />
           )}
 
-          {/* Player Selection */}
-          {!showToss && showPlayerSelection && (
-            <Card className="p-6 mb-6">
-              <h3 className="text-lg font-bold mb-4">Select Players</h3>
-
-              <div className="grid md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Striker Batsman {currentStriker === 'batsman1' && '*'}
-                  </label>
-                  <select
-                    value={selectedBatsman1}
-                    onChange={(e) => setSelectedBatsman1(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  >
-                    <option value="">Select Batsman</option>
-                    {getAvailableBatsmen().map((player: any, i: number) => (
-                      <option key={i} value={player.name}>
-                        {player.name} {player.is_captain && '(C)'} {player.is_keeper && '(WK)'}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Non-Striker {currentStriker === 'batsman2' && '*'}
-                  </label>
-                  <select
-                    value={selectedBatsman2}
-                    onChange={(e) => setSelectedBatsman2(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  >
-                    <option value="">Select Batsman</option>
-                    {getAvailableBatsmen()
-                      .filter((p: any) => p.name !== selectedBatsman1)
-                      .map((player: any, i: number) => (
-                        <option key={i} value={player.name}>
-                          {player.name} {player.is_captain && '(C)'} {player.is_keeper && '(WK)'}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Bowler</label>
-                  <select
-                    value={selectedBowler}
-                    onChange={(e) => setSelectedBowler(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  >
-                    <option value="">Select Bowler</option>
-                    {bowlingTeam?.players.map((player: any, i: number) => (
-                      <option key={i} value={player.name}>
-                        {player.name} {player.is_captain && '(C)'} {player.is_keeper && '(WK)'}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <Button
-                onClick={startScoring}
-                className="w-full mt-4 bg-green-500 hover:bg-green-600"
-              >
-                Continue Scoring
-              </Button>
-            </Card>
+          {state === 'PLAYER_SELECTION' && battingTeam && bowlingTeam && (
+            <PlayerSelectionForm
+              battingTeamName={match.batting_team!}
+              bowlingTeamName={match.bowling_team!}
+              battingPlayers={battingTeam.players}
+              bowlingPlayers={bowlingTeam.players}
+              onPlayersSelected={handlePlayersSelected}
+            />
           )}
 
-          {/* Current Players Display */}
-          {!showToss && !showPlayerSelection && selectedBatsman1 && selectedBatsman2 && (
-            <Card className="p-4 mb-4 bg-gray-50">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <p className="text-xs text-gray-600 mb-1">STRIKER</p>
-                  <p className="font-bold text-green-700">
-                    {currentStriker === 'batsman1' ? selectedBatsman1 : selectedBatsman2} *
+          {/* ✅ Batsman Change (After Wicket) */}
+          {state === 'SCORING' && needsBatsmanChange && battingTeam && (
+            <BatsmanChangeForm
+              availableBatsmen={getAvailableBatsmen()}
+              outBatsman={outBatsman}
+              onBatsmanSelected={handleBatsmanChange}
+            />
+          )}
+
+          {/* ✅ Bowler Change (After Over) */}
+          {state === 'SCORING' && needsBowlerChange && bowlingTeam && (
+            <Card className="p-6 mb-6 border-2 border-blue-500">
+              <h3 className="text-lg font-bold mb-2">🎯 Select New Bowler</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Over completed! Select the bowler for the next over.
+              </p>
+
+              {previousBowler && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mb-4">
+                  <p className="text-xs text-yellow-800">
+                    ⚠️ {previousBowler} cannot bowl consecutive overs
                   </p>
                 </div>
-                <div className="text-center">
-                  <p className="text-xs text-gray-600 mb-1">NON-STRIKER</p>
-                  <p className="font-bold">
-                    {currentStriker === 'batsman2' ? selectedBatsman1 : selectedBatsman2}
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs text-gray-600 mb-1">BOWLER</p>
-                  <p className="font-bold text-blue-700">{selectedBowler}</p>
-                </div>
+              )}
+
+              <div className="space-y-2">
+                {bowlingTeam.players
+                  .filter((p) => p.name !== previousBowler)
+                  .map((player, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleBowlerChange(player.name)}
+                      className="w-full p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-500 transition text-left"
+                    >
+                      <span className="font-medium">{player.name}</span>
+                      {player.is_captain && (
+                        <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                          C
+                        </span>
+                      )}
+                      {player.is_keeper && (
+                        <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                          WK
+                        </span>
+                      )}
+                    </button>
+                  ))}
               </div>
             </Card>
           )}
 
-          {/* Scoring Controls */}
-          {!showToss && !showPlayerSelection && (
-            <Card className="p-6">
-              <h3 className="text-lg font-bold mb-4">Record Ball</h3>
-
-              {/* Runs */}
-              <div className="grid grid-cols-4 gap-2 mb-4">
-                {['0', '1', '2', '3', '4', '5', '6'].map(run => (
-                  <Button
-                    key={run}
-                    onClick={() => recordBall(run)}
-                    variant="secondary"
-                    className={`h-14 text-lg font-bold
-                      ${run === '4' ? '!bg-blue-500 hover:!bg-blue-600 !text-white' :
-                        run === '6' ? '!bg-purple-500 hover:!bg-purple-600 !text-white' :
-                          ''}`}
-                  >
-                    {run}
-                  </Button>
-                ))}
-                <Button
-                  onClick={() => recordBall('W')}
-                  className="h-14 text-lg font-bold !bg-red-500 hover:!bg-red-600"
-                >
-                  W
-                </Button>
-              </div>
-
-              {/* Extras */}
-              <div className="grid grid-cols-4 gap-2 mb-4">
-                <Button onClick={() => recordBall('WD')} variant="outline" className="h-12">
-                  Wide
-                </Button>
-                <Button onClick={() => recordBall('NB')} variant="outline" className="h-12">
-                  No Ball
-                </Button>
-                <Button onClick={() => recordBall('B')} variant="outline" className="h-12">
-                  Bye
-                </Button>
-                <Button onClick={() => recordBall('LB')} variant="outline" className="h-12">
-                  Leg Bye
-                </Button>
-              </div>
-
-              {/* Extra runs */}
-              <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-                <span className="text-sm font-medium">Extra runs (for wides/no-balls):</span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setExtraRuns(Math.max(0, extraRuns - 1))}
-                  >
-                    <Minus className="h-3 w-3" />
-                  </Button>
-                  <span className="w-8 text-center font-bold">{extraRuns}</span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setExtraRuns(extraRuns + 1)}
-                  >
-                    <Plus className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          )}
+          {/* ✅ Scoring Interface (Only when not changing players) */}
+          {state === 'SCORING' &&
+            !needsBowlerChange &&
+            !needsBatsmanChange &&
+            batsman1 &&
+            batsman2 &&
+            bowler && (
+              <ScoringInterface
+                striker={batsman1}
+                nonStriker={batsman2}
+                bowler={bowler}
+                currentOver={currentOver}
+                currentStriker={currentStriker}
+                onBallRecorded={handleBallRecorded}
+              />
+            )}
         </div>
       </div>
     </>

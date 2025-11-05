@@ -8,7 +8,10 @@ export interface UserToken {
 
 export async function verifyToken(request: NextRequest): Promise<UserToken | null> {
   try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
+    // Check both Authorization header and cookies (TC012)
+    const authHeader = request.headers.get('authorization')?.replace('Bearer ', '');
+    const cookieToken = request.cookies.get('auth-token')?.value;
+    const token = authHeader || cookieToken;
     
     if (!token) {
       return null;

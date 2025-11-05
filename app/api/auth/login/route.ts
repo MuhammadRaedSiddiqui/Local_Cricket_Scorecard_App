@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { connectDB } from '@/lib/db';
 import User from '@/models/User';
+import { isValidEmail } from '@/utils/sanitize';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,6 +15,14 @@ export async function POST(request: NextRequest) {
     if (!email || !password) {
       return NextResponse.json(
         { error: 'Email and password are required' },
+        { status: 400 }
+      );
+    }
+
+    // Email format validation (TC002)
+    if (!isValidEmail(email)) {
+      return NextResponse.json(
+        { error: 'Invalid email format' },
         { status: 400 }
       );
     }

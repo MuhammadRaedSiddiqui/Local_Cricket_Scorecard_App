@@ -76,9 +76,13 @@ export default function MatchViewPage() {
 
   useEffect(() => {
     fetchMatch()
+   
   }, [matchId])
 
+ 
+
   const fetchMatch = async () => {
+    
     try {
       const token = localStorage.getItem('auth_token')
       const response = await fetch(`/api/matches/${matchId}`, {
@@ -103,13 +107,16 @@ export default function MatchViewPage() {
       const userData = localStorage.getItem('user')
       if (userData) {
         const user = JSON.parse(userData)
-        setIsAdmin(data.data.createdBy === user.id || data.data.admins?.includes(user.id))
+        setIsAdmin(data.data.createdBy === user._id || data.data.admins?.includes(user._id))
       }
+     
     } catch (err) {
       setError('Failed to load match')
       console.error('Fetch match error:', err)
     } finally {
       setLoading(false)
+      
+      
     }
   }
 

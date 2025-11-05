@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { connectDB } from '@/lib/db';
 import User from '@/models/User';
+import { sanitizeString, isValidEmail } from '@/utils/sanitize';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,9 +22,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Email format validation (TC002)
+    if (!isValidEmail(email)) {
+      return NextResponse.json(
+        { error: 'Invalid email format' },
+        { status: 400 }
+      );
+    }
+
     if (password.length < 6) {
       return NextResponse.json(
         { error: 'Password must be at least 6 characters' },
+        { status: 400 }
+      );
+    }
+
+    // Input sanitization (TC013) - Basic XSS prevention
+    const sanitizedName = sanitizeString(name);
+    if (!sanitizedName || sanitizedName.length === 0) {
+      return NextResponse.json(
+        { error: 'Invalid name provided' },
         { status: 400 }
       );
     }
@@ -43,8 +61,8 @@ export async function POST(request: NextRequest) {
 
     // Create new user
     const user = await User.create({
-      name,
-      email: email.toLowerCase(),
+      name: sanitizedName,
+      email: email.toLowerCase().trim(),
       password: hashedPassword
     });
 

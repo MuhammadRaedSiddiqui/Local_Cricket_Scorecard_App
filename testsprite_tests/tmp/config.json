@@ -1,0 +1,17 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:3000",
+  "loginUser": "test@gmail.com",
+  "loginPassword": "test@123-123",
+  "executionArgs": {
+    "projectName": "test_project",
+    "projectPath": "C:\\Users\\HP\\OneDrive\\Desktop\\python projects\\test_project",
+    "testIds": [],
+    "additionalInstruction": "",
+    "envs": {
+      "API_KEY": "sk-user-NTvE_EnUStDXLnSWUBomioVdNqj9v2uVzr5OEX3HF1UglB8QphCPmarAtc0VZP3p_zRZm1UbJMlrt381frjRPqmYlr9FN2sODWUjpALvlSEFUYqHvsqMkCNWCUTKPMFG2I8"
+    }
+  }
+}

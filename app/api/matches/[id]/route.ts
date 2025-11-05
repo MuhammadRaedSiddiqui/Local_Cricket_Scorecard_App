@@ -1,92 +1,113 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { connectDB } from '@/lib/db';
-import Match from '@/models/Match';
-import User from '@/models/User';
-import { verifyToken } from '@/lib/auth';
+import { NextRequest, NextResponse } from 'next/server'
+import { connectDB } from '@/lib/db'
+import Match from '@/models/Match'
+import { verifyToken } from '@/lib/auth'
 
 interface Params {
   params: { id: string }
 }
 
-// GET /api/matches/[id] - Get match by ID or code
+// GET single match
 export async function GET(request: NextRequest, { params }: Params) {
   try {
-    await connectDB();
-    
-    const { id } = params;
-    
-    // Check if it's a 6-character code or MongoDB ID
-    let match;
-    if (id.length === 6) {
-      match = await Match.findOne({ matchCode: id.toUpperCase() });
-    } else {
-      match = await Match.findById(id);
+    const user = await verifyToken(request)
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    await connectDB()
+
+    // ✅ Use .lean() to get plain object and include ALL fields
+    const match = await Match.findById(params.id).lean()
+    console.log("match api:",match)
 
     if (!match) {
-      return NextResponse.json(
-        { error: 'Match not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Match not found' }, { status: 404 })
     }
 
+    console.log('📥 Fetched match from DB:', {
+      id: match._id,
+      tossWinner: match.toss_winner,
+      battingTeam: match.batting_team,
+      scoringState: match.scoringState,
+    })
+
+    // ✅ Return the FULL match object
     return NextResponse.json({
       success: true,
-      data: match
-    });
-  } catch (error) {
-    console.error('Get match error:', error);
+      data: match,
+    })
+  } catch (error: any) {
+    console.error('Get match error:', error)
+    
+    // Improved error handling (TC020)
+    if (error.name === 'CastError') {
+      return NextResponse.json(
+        { error: 'Invalid match ID format' },
+        { status: 400 }
+      )
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to fetch match' },
+      { 
+        error: 'Failed to get match',
+        ...(process.env.NODE_ENV === 'development' && { details: error.message })
+      },
       { status: 500 }
-    );
+    )
   }
 }
 
-
-// DELETE - Remove match
-export async function DELETE(request: NextRequest, { params }: Params) {
+// PUT/PATCH - Update match (if needed)
+export async function PUT(request: NextRequest, { params }: Params) {
   try {
-    const user = await verifyToken(request);
+    const user = await verifyToken(request)
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    await connectDB();
-    
-    const match = await Match.findById(params.id);
-    
+    await connectDB()
+
+    const body = await request.json()
+
+    const match = await Match.findByIdAndUpdate(
+      params.id,
+      { $set: body },
+      { new: true, runValidators: false }
+    )
+
     if (!match) {
-      return NextResponse.json({ error: 'Match not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Match not found' }, { status: 404 })
     }
-
-    // Check if user is the creator (only creator can delete)
-    if (match.createdBy.toString() !== user.userId) {
-      return NextResponse.json({ 
-        error: 'Forbidden: Only match creator can delete' 
-      }, { status: 403 });
-    }
-
-    // Delete the match
-    await Match.findByIdAndDelete(params.id);
-
-    // Remove match from user's created matches
-    await User.findByIdAndUpdate(user.userId, {
-      $pull: { createdMatches: params.id }
-    });
-
-    console.log('✅ Match deleted:', params.id);
 
     return NextResponse.json({
       success: true,
-      message: 'Match deleted successfully'
-    });
-
+      data: match,
+    })
   } catch (error: any) {
-    console.error('❌ Delete match error:', error);
+    console.error('Update match error:', error)
+    
+    // Improved error handling (TC020)
+    if (error.name === 'ValidationError') {
+      return NextResponse.json(
+        { error: 'Validation error', details: error.message },
+        { status: 400 }
+      )
+    }
+    
+    if (error.name === 'CastError') {
+      return NextResponse.json(
+        { error: 'Invalid match ID format' },
+        { status: 400 }
+      )
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to delete match', details: error.message },
+      { 
+        error: 'Failed to update match',
+        ...(process.env.NODE_ENV === 'development' && { details: error.message })
+      },
       { status: 500 }
-    );
+    )
   }
 }

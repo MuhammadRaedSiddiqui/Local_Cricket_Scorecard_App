@@ -1,0 +1,258 @@
+{
+  "meta": {
+    "project": "Local League Cricket",
+    "date": "2025-11-04",
+    "prepared_by": "Product + Engineering Team"
+  },
+  "product_overview": "Local League Cricket is a web application designed to organize local cricket matches, facilitate team and player setup, real-time live scoring, and maintain leaderboards. It supports authenticated user flows, match management, and broadcasting live updates to participants and viewers.",
+  "core_goals": [
+    "Enable authenticated users to create, join, and manage cricket matches with team and player configurations.",
+    "Provide a streamlined and validated live scoring experience for real-time ball-by-ball match recording.",
+    "Broadcast real-time match updates including overs, runs, and wickets to all connected viewers via Pusher.",
+    "Persist match data consistently and expose APIs for leaderboards and detailed scorecards.",
+    "Implement basic user account functionalities including registration, login, logout, and session management."
+  ],
+  "key_features": [
+    "Authentication system with email/password registration, JWT-based login, session management and authorization middleware.",
+    "CRUD operations for matches including creation, retrieval, starting (with toss and player selection), and live scoring.",
+    "Live scoring interface supporting ball-by-ball event recording including runs, extras, wickets, and strike/bowler management with comprehensive validations.",
+    "Real-time updates broadcasting using Pusher for immediate data reflection on client views.",
+    "Detailed scorecard and leaderboard views showing individual and team statistics, innings and over details.",
+    "User dashboard presenting match overviews, invited matches, and quick actions for managing participation.",
+    "Landing page with marketing content, call-to-actions, and live match previews.",
+    "Secure and performant backend powered by Next.js API routes, MongoDB with Mongoose models for User and Match, and reusable UI components with TailwindCSS and Radix UI."
+  ],
+  "user_flow_summary": [
+    "Register and login using email and password to gain access to the dashboard.",
+    "From the dashboard, create a new match by configuring teams, players, overs, venue, and start time.",
+    "Invite or join players for the match with optional RSVP functionality.",
+    "Conduct the toss and select opening batsmen and bowler to officially start the match.",
+    "Use the live scoring interface to select striker, non-striker, and bowler and record ball outcomes with validation for runs, extras, wickets, and strike rotation.",
+    "View a live match page with real-time updates on scoring, current over, and player stats.",
+    "Access the finalized scorecard upon match completion and consult the leaderboard for team and player rankings."
+  ],
+  "validation_criteria": [
+    "Ensure user authentication endpoints enforce password hashing, token issuance, and session invalidation correctly.",
+    "Validate match creation data including teams, player rosters, overs, and venue before acceptance.",
+    "Verify live scoring actions comply with cricket rules: no consecutive overs by same bowler, correct ball counting excluding wides and no-balls, correct strike rotation.",
+    "Real-time updates must broadcast events within 500ms latency under normal conditions.",
+    "Protected routes enforce authentication and authorization to prevent unauthorized access.",
+    "API endpoints return appropriate HTTP status codes and error messages for validation failures, unauthorized access, and server errors.",
+    "Frontend components provide feedback via toasts for successful operations and error conditions.",
+    "All inputs must be sanitized and validated server-side to prevent injection or malformed data issues.",
+    "Performance goals met: scoring actions processed in under 150ms at 50th percentile.",
+    "Compliance with accessibility guidelines WCAG AA for color contrast and keyboard navigation in scoring controls."
+  ],
+  "code_summary": {
+    "tech_stack": [
+      "TypeScript",
+      "Next.js 14",
+      "React 18",
+      "MongoDB",
+      "Mongoose",
+      "TailwindCSS",
+      "JWT",
+      "Pusher",
+      "bcryptjs"
+    ],
+    "features": [
+      {
+        "name": "Authentication System",
+        "description": "User registration, login, logout, and authentication token management with JWT",
+        "files": [
+          "app/api/auth/register/route.ts",
+          "app/api/auth/login/route.ts",
+          "app/api/auth/logout/route.ts",
+          "app/api/auth/me/route.ts",
+          "app/(auth)/login/page.tsx",
+          "app/(auth)/register/page.tsx",
+          "lib/auth.ts",
+          "hooks/useAuth.ts",
+          "middleware.ts"
+        ]
+      },
+      {
+        "name": "User Management",
+        "description": "User model with password hashing, authentication, and match associations",
+        "files": [
+          "models/User.ts"
+        ]
+      },
+      {
+        "name": "Match Management",
+        "description": "Create, retrieve, update, and manage cricket matches with teams, players, and match configuration",
+        "files": [
+          "app/api/matches/route.ts",
+          "app/api/matches/[id]/route.ts",
+          "app/api/matches/[id]/start/route.ts",
+          "app/api/matches/[id]/score/route.ts",
+          "app/api/matches/[id]/debug/route.ts",
+          "app/matches/create/page.tsx",
+          "app/matches/[id]/page.tsx",
+          "models/Match.ts"
+        ]
+      },
+      {
+        "name": "Live Scoring System",
+        "description": "Real-time cricket match scoring with ball-by-ball events, over management, wicket tracking, and innings handling",
+        "files": [
+          "app/matches/[id]/score/page.tsx",
+          "app/matches/[id]/score/components/ScoringInterface.tsx",
+          "app/matches/[id]/score/components/ScoringControls.tsx",
+          "app/matches/[id]/score/components/ScoreDisplay.tsx",
+          "app/matches/[id]/score/components/CurrentOver.tsx",
+          "app/matches/[id]/score/components/CurrentPlayers.tsx",
+          "app/matches/[id]/score/components/ExtrasModal.tsx",
+          "hooks/useMatchScoring.ts",
+          "utils/scoringValidations.ts"
+        ]
+      },
+      {
+        "name": "Player Selection",
+        "description": "Batsman and bowler selection interfaces for match scoring",
+        "files": [
+          "app/matches/[id]/score/components/PlayerSelection.tsx",
+          "app/matches/[id]/score/components/PlayerSelectionForm.tsx",
+          "app/matches/[id]/score/components/BatsmanSelection.tsx",
+          "app/matches/[id]/score/components/BatsmanSelectionForm.tsx",
+          "app/matches/[id]/score/components/BowlerSelection.tsx"
+        ]
+      },
+      {
+        "name": "Toss Management",
+        "description": "Toss decision interface for match initialization",
+        "files": [
+          "app/matches/[id]/score/components/TossForm.tsx",
+          "app/matches/[id]/score/components/TossSection.tsx"
+        ]
+      },
+      {
+        "name": "Scorecard Display",
+        "description": "Match scorecard view showing detailed match statistics and ball-by-ball history",
+        "files": [
+          "app/matches/[id]/scorecard/page.tsx",
+          "components/sections/ScoreCard.tsx"
+        ]
+      },
+      {
+        "name": "Leaderboard",
+        "description": "Display team and player leaderboards with aggregated statistics",
+        "files": [
+          "app/api/leaderboard/route.ts",
+          "app/leaderboard/page.tsx",
+          "components/Leaderboard/LeaderboardTabs.tsx"
+        ]
+      },
+      {
+        "name": "Dashboard",
+        "description": "User dashboard with match overview, quick actions, and navigation",
+        "files": [
+          "app/dashboard/page.tsx",
+          "components/dashboard/Navbar.tsx",
+          "components/dashboard/WelcomeBanner.tsx",
+          "components/dashboard/QuickActions.tsx",
+          "components/dashboard/MyMatches.tsx",
+          "components/dashboard/InvitedMatches.tsx",
+          "components/dashboard/JoinMatchModel.tsx",
+          "components/dashboard/Footer.tsx"
+        ]
+      },
+      {
+        "name": "Home Page",
+        "description": "Landing page with marketing sections, features, and call-to-action",
+        "files": [
+          "app/page.tsx",
+          "app/home/page.tsx",
+          "app/home/layout.tsx",
+          "components/home/Header.tsx",
+          "components/home/LiveMatches.tsx",
+          "components/home/QuickActions.tsx",
+          "components/home/RecentActivity.tsx",
+          "components/home/StatsOverview.tsx",
+          "components/home/TeamPerformance.tsx",
+          "components/home/UpcomingMatches.tsx"
+        ]
+      },
+      {
+        "name": "Marketing Sections",
+        "description": "Marketing and informational sections for the landing page",
+        "files": [
+          "components/sections/Hero.tsx",
+          "components/sections/Features.tsx",
+          "components/sections/HowItWorks.tsx",
+          "components/sections/LiveMatchPreview.tsx",
+          "components/sections/AdminUserAccess.tsx",
+          "components/sections/CallToAction.tsx",
+          "components/sections/Footer.tsx"
+        ]
+      },
+      {
+        "name": "Database Connection",
+        "description": "MongoDB connection management with caching for Next.js serverless functions",
+        "files": [
+          "lib/db.ts"
+        ]
+      },
+      {
+        "name": "Real-time Updates",
+        "description": "Pusher integration for real-time match updates and live scoring broadcasts",
+        "files": [
+          "lib/pusher.ts",
+          "lib/pusher-client.ts"
+        ]
+      },
+      {
+        "name": "API Client",
+        "description": "Centralized API client for making authenticated requests to backend endpoints",
+        "files": [
+          "lib/api-client.ts",
+          "utils/apiHelpers.ts"
+        ]
+      },
+      {
+        "name": "UI Components",
+        "description": "Reusable UI components built with Radix UI and TailwindCSS",
+        "files": [
+          "components/ui/button.tsx",
+          "components/ui/card.tsx",
+          "components/ui/badge.tsx",
+          "components/ui/tabs.tsx",
+          "components/ui/AlertDialog.tsx",
+          "components/ui/toaster.tsx"
+        ]
+      },
+      {
+        "name": "Animations",
+        "description": "Scroll animations and motion effects",
+        "files": [
+          "components/animations/ScrollAnimation.tsx"
+        ]
+      },
+      {
+        "name": "Health Check",
+        "description": "API health check endpoint for monitoring",
+        "files": [
+          "app/api/health/route.ts"
+        ]
+      },
+      {
+        "name": "Utilities",
+        "description": "Helper utilities for validation, logging, and common operations",
+        "files": [
+          "lib/utils.ts",
+          "utils/scoringValidations.ts",
+          "utils/debugLogger.ts"
+        ]
+      },
+      {
+        "name": "Type Definitions",
+        "description": "TypeScript type definitions for matches, users, and application data structures",
+        "files": [
+          "types/index.ts",
+          "types/match.ts",
+          "models/index.ts"
+        ]
+      }
+    ]
+  }
+}

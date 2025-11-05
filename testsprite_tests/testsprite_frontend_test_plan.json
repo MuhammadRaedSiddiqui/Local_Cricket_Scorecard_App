@@ -1,0 +1,538 @@
+[
+  {
+    "id": "TC001",
+    "title": "User Registration Success",
+    "description": "Verify that a user can register successfully with valid email and password, resulting in password hashing and user creation.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the registration page."
+      },
+      {
+        "type": "action",
+        "description": "Input a valid email address and a strong password."
+      },
+      {
+        "type": "action",
+        "description": "Submit the registration form."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user is created in the database with password hashed."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a success message or redirect to login occurs."
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "User Registration Failure with Invalid Email",
+    "description": "Verify that registration fails when the email format is invalid, and an appropriate error message is provided.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the registration page."
+      },
+      {
+        "type": "action",
+        "description": "Input an invalid email format and a valid password."
+      },
+      {
+        "type": "action",
+        "description": "Submit the registration form."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify registration is rejected with a validation error stating invalid email."
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "User Login Success with Correct Credentials",
+    "description": "Verify user login success flow using valid email and password and receipt of JWT token and session management.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page."
+      },
+      {
+        "type": "action",
+        "description": "Enter registered email and correct password."
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify login is successful and JWT token is issued."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user session is established and protected routes are accessible."
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "User Login Failure with Incorrect Credentials",
+    "description": "Verify login failure when using incorrect password and appropriate error message returned without issuing tokens.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page."
+      },
+      {
+        "type": "action",
+        "description": "Enter registered email and incorrect password."
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify login is rejected with unauthorized error and no token issued."
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "User Logout Invalidates Session",
+    "description": "Verify that logout invalidates user's session and prevents access to protected resources afterwards.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login successfully and obtain a session."
+      },
+      {
+        "type": "action",
+        "description": "Send logout request to the API."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the session is invalidated on backend."
+      },
+      {
+        "type": "action",
+        "description": "Attempt to access protected API endpoints."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify access is denied due to missing or invalid session."
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Match Creation with Valid Data",
+    "description": "Verify that authenticated users can successfully create a cricket match with valid data including teams, players, overs, venue, and start time.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login and navigate to match creation page."
+      },
+      {
+        "type": "action",
+        "description": "Input valid teams, player rosters, number of overs, venue, and scheduled start time."
+      },
+      {
+        "type": "action",
+        "description": "Submit the match creation form."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify match is created in database with correct details."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify successful response and UI confirmation."
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Match Creation Failure with Invalid Data",
+    "description": "Verify match creation is rejected when invalid or incomplete data is submitted and proper validation error messages are returned.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login and navigate to match creation page."
+      },
+      {
+        "type": "action",
+        "description": "Input invalid or missing required fields (e.g. no players, overs=0)."
+      },
+      {
+        "type": "action",
+        "description": "Submit the match creation form."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify backend validation rejects the request with HTTP 400 and clear error messages."
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Starting a Match with Toss and Player Selection",
+    "description": "Verify authorized users can start a match by conducting a toss and selecting opening batsmen and opening bowler, transitioning match state appropriately.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login and retrieve a created match that is in setup state."
+      },
+      {
+        "type": "action",
+        "description": "Conduct toss via API or interface, selecting toss winner and choice."
+      },
+      {
+        "type": "action",
+        "description": "Select opening batsmen and bowler from team rosters."
+      },
+      {
+        "type": "action",
+        "description": "Send request to start the match."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify match state updates to 'in progress'."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the selected players are assigned as striker, non-striker, and bowler."
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Live Scoring - Normal Ball Outcome Entry",
+    "description": "Verify live scoring interface accepts valid ball-by-ball inputs for runs, extras, wickets with correct validation and updates scores correctly.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open live scoring interface for an ongoing match."
+      },
+      {
+        "type": "action",
+        "description": "Select striker, non-striker, and bowler."
+      },
+      {
+        "type": "action",
+        "description": "Record a legal delivery with runs scored (0 to 6) without extras or wickets."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify runs added to score, ball counted properly, and strike rotated if applicable."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify UI and data reflect updated over and innings state."
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Live Scoring - Extras and Wickets Validation",
+    "description": "Verify live scoring detects and prevents invalid extras and wicket scenarios such as consecutive overs by same bowler, improper ball counts, and wrong wicket types.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Attempt to record a delivery with an illegal extra type or invalid runs for that extra."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify validation error is shown and ball is not recorded."
+      },
+      {
+        "type": "action",
+        "description": "Attempt to bowl consecutive overs by the same bowler."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify bowling restriction validation prevents this."
+      },
+      {
+        "type": "action",
+        "description": "Attempt to record incorrect balls counting wides and no-balls affecting over count."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify ball counting logic excludes wides/no-balls correctly."
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Real-time Updates Broadcast via Pusher",
+    "description": "Verify that live scoring actions trigger real-time updates broadcasting to all connected clients with latency under 500ms.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Connect multiple clients/viewers to a live match page."
+      },
+      {
+        "type": "action",
+        "description": "Record a scoring event on the live scoring interface."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify all connected clients receive updated match data within 500ms."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify UI updates reflect new runs, overs, wickets, and player stats in real-time."
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Protected Routes Enforce Authentication and Authorization",
+    "description": "Verify that API endpoints and pages requiring authentication reject unauthorized access with proper HTTP status codes.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Attempt to access protected API endpoints like match creation, scoring, and user dashboard without authentication."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify server responds with HTTP 401 Unauthorized or 403 Forbidden."
+      },
+      {
+        "type": "action",
+        "description": "Attempt to perform actions on matches user is not authorized to manage."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify authorization checks prevent access and return appropriate errors."
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Data Input Sanitization on Backend",
+    "description": "Verify that all user inputs including registration, match creation, and scoring data are sanitized and validated server-side to prevent injections and malformed data.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Submit inputs containing potential injection code (e.g. scripts, special characters) in registration, match, and scoring APIs."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify backend rejects or sanitizes inputs without compromising data integrity or security."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify no database or application errors occur and no injection attacks succeed."
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Performance of Scoring Actions under Load",
+    "description": "Verify that scoring actions API responds within 150ms at median latency with concurrent users scoring at typical load levels.",
+    "category": "performance",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Simulate concurrent scoring API requests at expected match throughput (ball-by-ball recording)."
+      },
+      {
+        "type": "assertion",
+        "description": "Measure API response times and verify 50th percentile is under 150ms."
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Scorecard Display Accuracy and Completeness",
+    "description": "Verify the finalized scorecard view correctly shows ball-by-ball details, individual player stats, innings information, and match summary after match completion.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Complete a match including all overs and wickets."
+      },
+      {
+        "type": "action",
+        "description": "Navigate to scorecard view page."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that all balls are listed with runs, extras, wickets correctly annotated."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify player statistics such as runs, balls faced, strike rate, wickets taken match scoring data."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify innings total runs and extras are correctly aggregated."
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "Leaderboard Accuracy and Filtering",
+    "description": "Verify leaderboard displays accurate aggregated team and player statistics with filtering and sorting as per requirements.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Access the leaderboard page."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify team rankings are correctly computed from match results."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify player stats such as total runs, wickets, averages are correctly displayed."
+      },
+      {
+        "type": "action",
+        "description": "Apply filtering or tab switches on leaderboard."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify data updates accordingly and remains consistent and accurate."
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "User Dashboard Data Display and Actions",
+    "description": "Verify that user dashboard displays match overview, invited matches, and quick actions correctly for the logged-in user.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as user with multiple current and invited matches."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify dashboard lists all matches user is participating in or invited to."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify quick actions like creating matches or joining are accessible and functional."
+      }
+    ]
+  },
+  {
+    "id": "TC018",
+    "title": "Landing Page Display and Call-to-Actions",
+    "description": "Verify that landing page renders marketing content, features, live match previews, and call-to-actions correctly across supported browsers.",
+    "category": "ui",
+    "priority": "Low",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the home landing page."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify all marketing sections including Hero, Features, HowItWorks and LiveMatchPreview are present."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify call-to-action buttons function correctly including navigation to registration or login."
+      }
+    ]
+  },
+  {
+    "id": "TC019",
+    "title": "Accessibility Compliance for Scoring Controls",
+    "description": "Verify that the scoring interface components meet WCAG AA guidelines for color contrast, keyboard navigation, and screen reader compatibility.",
+    "category": "ui",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open the live scoring page."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify color contrast ratios meet WCAG AA standards."
+      },
+      {
+        "type": "action",
+        "description": "Navigate scoring controls and inputs entirely using keyboard."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify all interactive elements are reachable, operable, and have visible focus states."
+      },
+      {
+        "type": "action",
+        "description": "Use a screen reader to confirm meaningful labels and announcements on scoring controls."
+      }
+    ]
+  },
+  {
+    "id": "TC020",
+    "title": "API Returns Appropriate Status Codes and Error Messages",
+    "description": "Verify all API endpoints return correct HTTP status codes and detailed error messages for validation failures, unauthorized access, and internal errors.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send requests with invalid data to various endpoints (auth, matches, scoring)."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify responses contain HTTP 400 with relevant messages."
+      },
+      {
+        "type": "action",
+        "description": "Access protected endpoints without auth."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify HTTP 401 or 403 is returned."
+      },
+      {
+        "type": "action",
+        "description": "Simulate server errors (e.g. disconnect database)."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify HTTP 500 responses with generic error messages."
+      }
+    ]
+  }
+]

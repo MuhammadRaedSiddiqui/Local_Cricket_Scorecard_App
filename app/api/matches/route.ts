@@ -3,6 +3,7 @@ import { connectDB } from '@/lib/db';
 import Match from '@/models/Match';
 import User from '@/models/User';
 import { verifyToken } from '@/lib/auth';
+import { sanitizeString } from '@/utils/sanitize';
 
 
 
@@ -98,6 +99,71 @@ export async function POST(request: NextRequest) {
     await connectDB();
     
     const matchData = await request.json();
+
+    // Validation (TC007) - Match creation with proper error messages
+    if (!matchData.teamOne || !matchData.teamTwo) {
+      return NextResponse.json(
+        { error: 'Both teams are required' },
+        { status: 400 }
+      );
+    }
+
+    if (!matchData.teamOne.name || !matchData.teamTwo.name) {
+      return NextResponse.json(
+        { error: 'Team names are required' },
+        { status: 400 }
+      );
+    }
+
+    if (!Array.isArray(matchData.teamOne.players) || !Array.isArray(matchData.teamTwo.players)) {
+      return NextResponse.json(
+        { error: 'Players must be arrays for both teams' },
+        { status: 400 }
+      );
+    }
+
+    if (matchData.teamOne.players.length === 0 || matchData.teamTwo.players.length === 0) {
+      return NextResponse.json(
+        { error: 'Each team must have at least one player' },
+        { status: 400 }
+      );
+    }
+
+    if (!matchData.overs || typeof matchData.overs !== 'number' || matchData.overs <= 0) {
+      return NextResponse.json(
+        { error: 'Valid number of overs is required (must be greater than 0)' },
+        { status: 400 }
+      );
+    }
+
+    if (!matchData.venue || typeof matchData.venue !== 'string' || matchData.venue.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'Venue is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!matchData.startTime) {
+      return NextResponse.json(
+        { error: 'Start time is required' },
+        { status: 400 }
+      );
+    }
+
+    // Input sanitization (TC013) - Sanitize team names and venue
+    matchData.teamOne.name = sanitizeString(matchData.teamOne.name);
+    matchData.teamTwo.name = sanitizeString(matchData.teamTwo.name);
+    matchData.venue = sanitizeString(matchData.venue);
+
+    // Sanitize player names
+    matchData.teamOne.players = matchData.teamOne.players.map((player: any) => ({
+      ...player,
+      name: sanitizeString(player.name || '')
+    }));
+    matchData.teamTwo.players = matchData.teamTwo.players.map((player: any) => ({
+      ...player,
+      name: sanitizeString(player.name || '')
+    }));
 
     // Create match with generated code
     const match = await Match.create({
