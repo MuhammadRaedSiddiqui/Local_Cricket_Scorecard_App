@@ -324,72 +324,26 @@ export default function ScoreCard({ match, isLive = false, viewersCount = 2300 }
                 </div>
               )}
 
-              {/* Recent Balls / Current Over (TC015) */}
+              {/* Recent Balls */}
               <div className="mt-6">
-                <p className="text-xs text-gray-600 uppercase tracking-wider mb-3">
-                  {match?.scoringState?.currentOver && match.scoringState.currentOver.length > 0 
-                    ? 'This Over' 
-                    : hasRealData && match?.ballHistory && match.ballHistory.length > 0
-                    ? 'Ball-by-Ball History'
-                    : 'This Over'}
-                </p>
-                <div className="flex gap-2 flex-wrap">
-                  {hasRealData && match?.scoringState?.currentOver && match.scoringState.currentOver.length > 0 
-                    ? match.scoringState.currentOver.map((ball: string, index: number) => (
-                        <div
-                          key={index}
-                          className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
-                            ball === 'W'
-                              ? 'bg-red-100 text-red-600'
-                              : ball === '4'
-                              ? 'bg-blue-100 text-blue-600'
-                              : ball === '6'
-                              ? 'bg-green-100 text-green-600'
-                              : ['WD', 'NB'].includes(ball)
-                              ? 'bg-yellow-100 text-yellow-600'
-                              : 'bg-gray-100 text-gray-700'
-                          }`}
-                          title={`Ball ${index + 1}: ${ball}`}
-                        >
-                          {ball}
-                        </div>
-                      ))
-                    : hasRealData && match?.ballHistory && match.ballHistory.length > 0
-                    ? match.ballHistory.slice(-6).map((ball: any, index: number) => (
-                        <div
-                          key={index}
-                          className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
-                            ball.outcome === 'W'
-                              ? 'bg-red-100 text-red-600'
-                              : ball.outcome === '4'
-                              ? 'bg-blue-100 text-blue-600'
-                              : ball.outcome === '6'
-                              ? 'bg-green-100 text-green-600'
-                              : ['WD', 'NB'].includes(ball.outcome)
-                              ? 'bg-yellow-100 text-yellow-600'
-                              : 'bg-gray-100 text-gray-700'
-                          }`}
-                          title={`Over ${ball.overNumber}, Ball ${ball.ballNumber}: ${ball.outcome} (${ball.runs} runs)`}
-                        >
-                          {ball.outcome}
-                        </div>
-                      ))
-                    : ['1', '4', 'W', '2', '0', '6'].map((ball, index) => (
-                        <div
-                          key={index}
-                          className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
-                            ball === 'W'
-                              ? 'bg-red-100 text-red-600'
-                              : ball === '4'
-                              ? 'bg-blue-100 text-blue-600'
-                              : ball === '6'
-                              ? 'bg-green-100 text-green-600'
-                              : 'bg-gray-100 text-gray-700'
-                          }`}
-                        >
-                          {ball}
-                        </div>
-                      ))}
+                <p className="text-xs text-gray-600 uppercase tracking-wider mb-3">This Over</p>
+                <div className="flex gap-2">
+                  {['1', '4', 'W', '2', '0', '6'].map((ball, index) => (
+                    <div
+                      key={index}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
+                        ball === 'W'
+                          ? 'bg-red-100 text-red-600'
+                          : ball === '4'
+                          ? 'bg-blue-100 text-blue-600'
+                          : ball === '6'
+                          ? 'bg-green-100 text-green-600'
+                          : 'bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      {ball}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -507,56 +461,6 @@ export default function ScoreCard({ match, isLive = false, viewersCount = 2300 }
             </div>
           ) : (
             <div className="text-center text-gray-600">No bowling data yet.</div>
-          )}
-
-          {/* Ball-by-Ball History Section (TC015) */}
-          {hasRealData && match?.ballHistory && match.ballHistory.length > 0 && (
-            <div className="mt-12">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Ball-by-Ball History</h3>
-              <div className="bg-gray-50 rounded-xl p-4 max-h-96 overflow-y-auto">
-                <div className="space-y-2">
-                  {match.ballHistory.map((ball: any, index: number) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between text-sm bg-white p-2 rounded border border-gray-200"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono text-xs text-gray-500">
-                          {ball.overNumber}.{ball.ballNumber}
-                        </span>
-                        <span className="font-medium text-gray-700">{ball.batsman}</span>
-                        <span className="text-gray-500">vs</span>
-                        <span className="text-gray-700">{ball.bowler}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`px-2 py-1 rounded font-bold ${
-                            ball.outcome === 'W'
-                              ? 'bg-red-100 text-red-600'
-                              : ball.outcome === '4'
-                              ? 'bg-blue-100 text-blue-600'
-                              : ball.outcome === '6'
-                              ? 'bg-green-100 text-green-600'
-                              : ['WD', 'NB'].includes(ball.outcome)
-                              ? 'bg-yellow-100 text-yellow-600'
-                              : 'bg-gray-100 text-gray-700'
-                          }`}
-                        >
-                          {ball.outcome}
-                        </span>
-                        <span className="text-gray-700 font-medium">{ball.runs} runs</span>
-                        {ball.isExtra && (
-                          <span className="text-xs text-orange-600">(extra)</span>
-                        )}
-                        {ball.isWicket && (
-                          <span className="text-xs text-red-600">(wicket)</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
           )}
         </div>
       </div>

@@ -51,8 +51,8 @@ export default function DashboardPage() {
   const [matchesLoading, setMatchesLoading] = useState(true)
 
   useEffect(() => {
-    // Check if user is authenticated (TC012, TC017)
-    const checkAuth = async () => {
+    // Check if user is authenticated
+    const checkAuth = () => {
       try {
         const token = localStorage.getItem('auth_token')
         const userData = localStorage.getItem('user')
@@ -62,36 +62,8 @@ export default function DashboardPage() {
           return
         }
 
-        // Verify token with backend (TC012)
-        try {
-          const response = await fetch('/api/auth/me', {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          })
-
-          if (!response.ok) {
-            // Token invalid or expired
-            localStorage.clear()
-            router.push('/login')
-            return
-          }
-
-          const data = await response.json()
-          if (data.success && data.user) {
-            setUser(data.user)
-            // Update localStorage with latest user data
-            localStorage.setItem('user', JSON.stringify(data.user))
-          } else {
-            throw new Error('Invalid user data')
-          }
-        } catch (error) {
-          console.error('Auth verification failed:', error)
-          localStorage.clear()
-          router.push('/login')
-          return
-        }
-
+        const parsedUser = JSON.parse(userData)
+        setUser(parsedUser)
         setLoading(false)
       } catch (error) {
         console.error('Failed to load user data:', error)
@@ -140,18 +112,13 @@ export default function DashboardPage() {
 
   const handleLogout = async () => {
     try {
-      // Clear session on backend (TC005)
       await fetch('/api/auth/logout', { method: 'POST' })
     } catch (error) {
       console.error('Logout error:', error)
     } finally {
-      // Clear all client-side auth data (TC005)
       localStorage.removeItem('auth_token')
       localStorage.removeItem('user')
-      // Redirect to login and prevent back navigation
       router.push('/login')
-      // Force page reload to clear any cached state
-      window.location.href = '/login'
     }
   }
 

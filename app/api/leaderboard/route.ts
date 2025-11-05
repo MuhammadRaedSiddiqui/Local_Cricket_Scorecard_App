@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     await connectDB();
 
-    // Fetch all completed matches (TC016)
+    // Fetch all completed matches
     const matches = await Match.find({ status: 'completed' }).lean();
 
     if (!matches || matches.length === 0) {
@@ -42,8 +42,6 @@ export async function GET(request: NextRequest) {
               ballsBowled: 0,
               runsConceded: 0,
               innings: 0,
-              maidens: 0,
-              dot_balls: 0,
             });
           }
 
@@ -63,12 +61,8 @@ export async function GET(request: NextRequest) {
           stats.sixes += player.sixes || 0;
           stats.highScore = Math.max(stats.highScore, player.runs_scored || 0);
 
-          // Bowling stats (TC016)
+          // Bowling stats
           stats.wickets += player.wickets || 0;
-          stats.ballsBowled += player.balls_bowled || 0;
-          stats.runsConceded += player.runs_conceded || 0;
-          stats.maidens += player.maidens || 0;
-          stats.dot_balls += player.dot_balls || 0;
         });
       });
     });
@@ -101,20 +95,20 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.runs - a.runs)
       .slice(0, 10);
 
-    // Calculate bowling stats (TC016)
+    // Calculate bowling stats
     const bowlingStats = Array.from(playerStatsMap.values())
-      .filter((stats) => stats.wickets > 0 || stats.ballsBowled > 0)
+      .filter((stats) => stats.wickets > 0 || stats.balls_bowled > 0)
       .map((stats) => {
-        const overs = stats.ballsBowled > 0
-          ? Math.floor(stats.ballsBowled / 6) + (stats.ballsBowled % 6) / 10
+        const overs = stats.balls_bowled > 0
+          ? Math.floor(stats.balls_bowled / 6) + (stats.balls_bowled % 6) / 10
           : 0
 
-        const economy = stats.ballsBowled > 0
-          ? ((stats.runsConceded / stats.ballsBowled) * 6).toFixed(2)
+        const economy = stats.balls_bowled > 0
+          ? ((stats.runs_conceded / stats.balls_bowled) * 6).toFixed(2)
           : '0.00'
 
         const average = stats.wickets > 0
-          ? (stats.runsConceded / stats.wickets).toFixed(2)
+          ? (stats.runs_conceded / stats.wickets).toFixed(2)
           : '0.00'
 
         return {
@@ -122,11 +116,11 @@ export async function GET(request: NextRequest) {
           matches: stats.matches.size,
           wickets: stats.wickets,
           overs: overs.toFixed(1),
-          runs_conceded: stats.runsConceded,
+          runs_conceded: stats.runs_conceded,
           economy: parseFloat(economy),
           average: parseFloat(average),
-          maidens: stats.maidens || 0,
-          dot_balls: stats.dot_balls || 0,
+          maidens: stats.maidens,
+          dot_balls: stats.dot_balls,
           bestBowling: stats.wickets,
         };
       })
@@ -142,16 +136,8 @@ export async function GET(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Leaderboard API Error:', error);
-    
-    // Improved error handling (TC020)
     return NextResponse.json(
-      { 
-        error: 'Failed to fetch leaderboard data',
-        battingStats: [],
-        bowlingStats: [],
-        totalMatches: 0,
-        ...(process.env.NODE_ENV === 'development' && { details: error.message })
-      },
+      { error: 'Failed to fetch leaderboard data', message: error.message },
       { status: 500 }
     );
   }

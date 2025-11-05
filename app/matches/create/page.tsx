@@ -251,9 +251,7 @@ const handleCreateMatch = async () => {
     const data = await response.json()
 
     if (!response.ok) {
-      // Display backend validation errors (TC007, TC020)
-      const errorMessage = data.error || `Failed to create match (${response.status})`
-      throw new Error(errorMessage)
+      throw new Error(data.error || 'Failed to create match')
     }
 
     toast.success(
@@ -265,7 +263,6 @@ const handleCreateMatch = async () => {
     )
 
     setTimeout(() => {
-      console.log(data.data._id,"id")
       router.push(`/matches/${data.data._id}`)
     }, 2000)
   } catch (error) {

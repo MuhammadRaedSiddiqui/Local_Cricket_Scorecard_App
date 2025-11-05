@@ -19,7 +19,6 @@ export async function GET(request: NextRequest, { params }: Params) {
 
     // ✅ Use .lean() to get plain object and include ALL fields
     const match = await Match.findById(params.id).lean()
-    console.log("match api:",match)
 
     if (!match) {
       return NextResponse.json({ error: 'Match not found' }, { status: 404 })
@@ -37,22 +36,10 @@ export async function GET(request: NextRequest, { params }: Params) {
       success: true,
       data: match,
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Get match error:', error)
-    
-    // Improved error handling (TC020)
-    if (error.name === 'CastError') {
-      return NextResponse.json(
-        { error: 'Invalid match ID format' },
-        { status: 400 }
-      )
-    }
-    
     return NextResponse.json(
-      { 
-        error: 'Failed to get match',
-        ...(process.env.NODE_ENV === 'development' && { details: error.message })
-      },
+      { error: 'Failed to get match' },
       { status: 500 }
     )
   }
@@ -84,29 +71,10 @@ export async function PUT(request: NextRequest, { params }: Params) {
       success: true,
       data: match,
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Update match error:', error)
-    
-    // Improved error handling (TC020)
-    if (error.name === 'ValidationError') {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.message },
-        { status: 400 }
-      )
-    }
-    
-    if (error.name === 'CastError') {
-      return NextResponse.json(
-        { error: 'Invalid match ID format' },
-        { status: 400 }
-      )
-    }
-    
     return NextResponse.json(
-      { 
-        error: 'Failed to update match',
-        ...(process.env.NODE_ENV === 'development' && { details: error.message })
-      },
+      { error: 'Failed to update match' },
       { status: 500 }
     )
   }

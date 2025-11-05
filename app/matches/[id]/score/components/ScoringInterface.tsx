@@ -93,8 +93,8 @@ export function ScoringInterface({
       <Card className="p-6">
         <h3 className="text-lg font-bold mb-4">Record Ball</h3>
 
-        {/* Runs (TC019 - Accessibility) */}
-        <div className="grid grid-cols-4 gap-2 mb-4" role="group" aria-label="Record ball outcome">
+        {/* Runs */}
+        <div className="grid grid-cols-4 gap-2 mb-4">
           {['0', '1', '2', '3', '4', '5', '6'].map((run) => (
             <Button
               key={run}
@@ -108,8 +108,6 @@ export function ScoringInterface({
                   ? '!bg-purple-500 hover:!bg-purple-600 !text-white'
                   : ''
               }`}
-              aria-label={`Record ${run} run${run === '1' ? '' : 's'}`}
-              aria-required="false"
             >
               {run}
             </Button>
@@ -118,8 +116,6 @@ export function ScoringInterface({
             onClick={() => handleBall('W')}
             disabled={recording}
             className="h-14 text-lg font-bold !bg-red-500 hover:!bg-red-600"
-            aria-label="Record wicket"
-            aria-required="false"
           >
             W
           </Button>

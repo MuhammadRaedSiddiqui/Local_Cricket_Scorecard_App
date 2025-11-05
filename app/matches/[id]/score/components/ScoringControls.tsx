@@ -48,16 +48,14 @@ export const ScoringControls = ({
             variant="outline"
             size="sm"
             className="flex items-center gap-2"
-            aria-label="Undo last ball"
-            aria-disabled={!canUndo}
           >
             <RotateCcw className="h-4 w-4" />
             Undo
           </Button>
         </div>
 
-        {/* Runs (TC019 - Accessibility) */}
-        <div className="grid grid-cols-4 gap-2 mb-4" role="group" aria-label="Record ball outcome">
+        {/* Runs */}
+        <div className="grid grid-cols-4 gap-2 mb-4">
           {['0', '1', '2', '3', '4', '5', '6'].map((run) => (
             <Button
               key={run}
@@ -71,8 +69,6 @@ export const ScoringControls = ({
                     ? '!bg-purple-500 hover:!bg-purple-600 !text-white'
                     : ''
                 }`}
-              aria-label={`Record ${run} run${run === '1' ? '' : 's'}`}
-              aria-required="false"
             >
               {run}
             </Button>
@@ -80,23 +76,19 @@ export const ScoringControls = ({
           <Button
             onClick={() => onBallRecorded('W', 0)} // ✅ Pass 0 for wicket
             className="h-14 text-lg font-bold !bg-red-500 hover:!bg-red-600"
-            aria-label="Record wicket"
-            aria-required="false"
           >
             W
           </Button>
         </div>
 
-        {/* Extras (TC019 - Accessibility) */}
+        {/* Extras */}
         <div className="mb-4">
           <p className="text-sm font-medium mb-2">Extras</p>
-          <div className="grid grid-cols-4 gap-2" role="group" aria-label="Record extras">
+          <div className="grid grid-cols-4 gap-2">
             <Button
               onClick={() => handleExtraClick('WD')}
               variant="outline"
               className="h-12"
-              aria-label="Record wide"
-              aria-required="false"
             >
               Wide
             </Button>
@@ -104,8 +96,6 @@ export const ScoringControls = ({
               onClick={() => handleExtraClick('NB')}
               variant="outline"
               className="h-12"
-              aria-label="Record no ball"
-              aria-required="false"
             >
               No Ball
             </Button>
@@ -113,8 +103,6 @@ export const ScoringControls = ({
               onClick={() => handleExtraClick('B')}
               variant="outline"
               className="h-12"
-              aria-label="Record bye"
-              aria-required="false"
             >
               Bye
             </Button>
@@ -122,8 +110,6 @@ export const ScoringControls = ({
               onClick={() => handleExtraClick('LB')}
               variant="outline"
               className="h-12"
-              aria-label="Record leg bye"
-              aria-required="false"
             >
               Leg Bye
             </Button>

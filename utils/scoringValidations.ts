@@ -18,13 +18,7 @@ export const validateBallUpdate = (
     return errors
   }
 
-  // Match must be live (TC009)
-  if (match.status !== 'live') {
-    errors.push({ message: 'Match must be live to record scoring events', type: 'error' })
-    return errors
-  }
-
-  // Can't exceed total overs (TC010)
+  // Can't exceed total overs
   const maxBalls = match.overs * 6
   if (
     battingTeam.total_balls >= maxBalls &&
@@ -46,20 +40,13 @@ export const validateBallUpdate = (
     }
   }
 
-  // Validate outcome is valid (TC010)
-  const validOutcomes = ['0', '1', '2', '3', '4', '5', '6', 'W', 'WD', 'NB', 'B', 'LB']
-  if (!validOutcomes.includes(outcome)) {
-    errors.push({ message: `Invalid ball outcome: ${outcome}`, type: 'error' })
-  }
-
   return errors
 }
 
 export const validatePlayerSelection = (
   batsman1: string,
   batsman2: string,
-  bowler: string,
-  previousBowler?: string
+  bowler: string
 ): ValidationError[] => {
   const errors: ValidationError[] = []
 
@@ -73,14 +60,6 @@ export const validatePlayerSelection = (
   if (batsman1 === batsman2 && batsman1 !== '') {
     errors.push({
       message: 'Please select different batsmen',
-      type: 'error',
-    })
-  }
-
-  // Validation (TC010) - Prevent consecutive overs by same bowler
-  if (previousBowler && bowler === previousBowler) {
-    errors.push({
-      message: 'Bowler cannot bowl consecutive overs. Please select a different bowler.',
       type: 'error',
     })
   }

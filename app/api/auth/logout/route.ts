@@ -1,7 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-export async function POST(request: NextRequest) {
-  // Clear the auth cookie (TC005)
+export async function POST() {
   const response = NextResponse.json({
     success: true,
     message: 'Logged out successfully'
@@ -14,13 +13,7 @@ export async function POST(request: NextRequest) {
     httpOnly: true,
     expires: new Date(0),
     path: '/',
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
   });
-
-  // Note: JWT tokens are stateless, so we can't invalidate them server-side
-  // Client must clear localStorage and the expired cookie will prevent reuse
-  // For production, consider implementing token blacklisting or shorter expiration
 
   return response;
 }

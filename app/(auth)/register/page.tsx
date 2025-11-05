@@ -21,29 +21,7 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Frontend validation (TC002)
-    if (!formData.name.trim()) {
-      toast.error('Name is required')
-      return
-    }
-
-    if (!formData.email.trim()) {
-      toast.error('Email is required')
-      return
-    }
-
-    // Email format validation (TC002)
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(formData.email)) {
-      toast.error('Please enter a valid email address')
-      return
-    }
-
-    if (!formData.password) {
-      toast.error('Password is required')
-      return
-    }
-
+    // Validation
     if (formData.password !== formData.confirmPassword) {
       toast.error('Passwords do not match')
       return
@@ -70,9 +48,7 @@ export default function RegisterPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        // Display backend validation errors (TC002, TC020)
-        const errorMessage = data.error || `Registration failed (${res.status})`
-        throw new Error(errorMessage)
+        throw new Error(data.error || 'Registration failed')
       }
 
       // Store token
@@ -126,8 +102,6 @@ export default function RegisterPage() {
                   onChange={(e) => setFormData({...formData, name: e.target.value})}
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                   placeholder="John Doe"
-                  aria-label="Full Name"
-                  aria-required="true"
                 />
               </div>
             </div>
@@ -146,8 +120,6 @@ export default function RegisterPage() {
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                   placeholder="you@example.com"
-                  aria-label="Email Address"
-                  aria-required="true"
                 />
               </div>
             </div>
@@ -167,8 +139,6 @@ export default function RegisterPage() {
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                   placeholder="••••••••"
                   minLength={6}
-                  aria-label="Password"
-                  aria-required="true"
                 />
               </div>
             </div>
@@ -188,8 +158,6 @@ export default function RegisterPage() {
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                   placeholder="••••••••"
                   minLength={6}
-                  aria-label="Confirm Password"
-                  aria-required="true"
                 />
               </div>
             </div>
