@@ -1,0 +1,10 @@
+{
+  "timestamp": "20251106_165427",
+  "success_rate": 50.0,
+  "test_results": {
+    "user_setup": true,
+    "match_creation": false
+  },
+  "match_id": null,
+  "user_email": "scorer1762430065@cricket.test"
+}

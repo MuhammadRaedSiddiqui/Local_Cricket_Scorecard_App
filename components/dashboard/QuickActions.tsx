@@ -59,8 +59,20 @@ export default function QuickActions() {
         router.push('/leaderboard')
         break
       case 'invite':
-        // Open share modal
-        console.log('Invite friends')
+        // Open share modal or native share
+        if (navigator.share) {
+          navigator.share({
+            title: 'Local League Cricket',
+            text: 'Join me on Local League Cricket for exciting matches!',
+            url: window.location.origin
+          })
+        } else {
+          // Fallback to clipboard
+          const shareText = `Join me on Local League Cricket for exciting matches! ${window.location.origin}`
+          navigator.clipboard.writeText(shareText)
+          // Could add a toast notification here
+          console.log('Share link copied to clipboard')
+        }
         break
     }
   }

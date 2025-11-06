@@ -73,6 +73,7 @@ export interface Match {
   bowling_team?: string
   target?: number
   overs: number
+  currentInnings?: number
   scoringState?: ScoringState
   ballHistory: Ball[]
   createdBy: string

@@ -13,7 +13,6 @@ export async function POST(request: NextRequest, { params }: Params) {
   try {
     console.log('🔵 [API] POST /api/matches/:id/score started')
 
-    // Auth
     const user = await verifyToken(request)
     if (!user) {
       console.log('❌ [API] Unauthorized')
@@ -23,14 +22,12 @@ export async function POST(request: NextRequest, { params }: Params) {
     await connectDB()
     console.log('✅ [API] Database connected')
 
-    // Get existing match
     const existingMatch = await Match.findById(params.id)
     if (!existingMatch) {
       console.log('❌ [API] Match not found')
       return NextResponse.json({ error: 'Match not found' }, { status: 404 })
     }
 
-    // Authorization check
     const isAuthorized =
       existingMatch.scorers.some((id: any) => id.toString() === user.userId) ||
       existingMatch.admins.some((id: any) => id.toString() === user.userId) ||
@@ -44,43 +41,91 @@ export async function POST(request: NextRequest, { params }: Params) {
       )
     }
 
-    // Parse body
-    const body = await request.json()
-    console.log('📥 [API] Request body:', JSON.stringify(body, null, 2))
+    // CHANGED: normalize body to support { match: {...} } and flat body
+    const raw = await request.json()
+    const body = raw?.match ?? raw
+    console.log('📥 [API] Request body (normalized):', JSON.stringify(body, null, 2))
 
-    // Build update object
     const updateData: any = {}
+    const before = {
+      innings: existingMatch.currentInnings,
+      bat: existingMatch.batting_team,
+      bowl: existingMatch.bowling_team,
+      target: existingMatch.target,
+    }
 
-    // Simple field updates
-    if (body.toss_winner !== undefined) updateData.toss_winner = body.toss_winner
-    if (body.toss_decision !== undefined)
-      updateData.toss_decision = body.toss_decision
-    if (body.batting_team !== undefined) updateData.batting_team = body.batting_team
-    if (body.bowling_team !== undefined)
-      updateData.bowling_team = body.bowling_team
-    if (body.status !== undefined) updateData.status = body.status
-    if (body.scoringState !== undefined)
-      updateData.scoringState = body.scoringState
+    const isDefined = (v: any) => typeof v !== 'undefined'
+
+    // Simple root fields
+    if (isDefined(body.toss_winner)) updateData.toss_winner = body.toss_winner
+    if (isDefined(body.toss_decision)) updateData.toss_decision = body.toss_decision
+    if (isDefined(body.batting_team)) updateData.batting_team = body.batting_team
+    if (isDefined(body.bowling_team)) updateData.bowling_team = body.bowling_team
+    if (isDefined(body.status)) updateData.status = body.status
+    // NEW: persist target at root
+    if (isDefined(body.target)) updateData.target = body.target
+
+    // NEW: normalize and persist currentInnings at root
+    const normalizedInnings =
+      (isDefined(body.currentInnings) ? body.currentInnings : undefined) ??
+      (isDefined(body.scoringState?.currentInnings) ? body.scoringState.currentInnings : undefined) ??
+      existingMatch.currentInnings
+
+    updateData.currentInnings = normalizedInnings
 
     // Team score updates
-    if (body['teamOne.total_score'] !== undefined)
-      updateData['teamOne.total_score'] = body['teamOne.total_score']
-    if (body['teamOne.total_wickets'] !== undefined)
-      updateData['teamOne.total_wickets'] = body['teamOne.total_wickets']
-    if (body['teamOne.total_balls'] !== undefined)
-      updateData['teamOne.total_balls'] = body['teamOne.total_balls']
-    if (body['teamTwo.total_score'] !== undefined)
-      updateData['teamTwo.total_score'] = body['teamTwo.total_score']
-    if (body['teamTwo.total_wickets'] !== undefined)
-      updateData['teamTwo.total_wickets'] = body['teamTwo.total_wickets']
-    if (body['teamTwo.total_balls'] !== undefined)
-      updateData['teamTwo.total_balls'] = body['teamTwo.total_balls']
+    if (isDefined(body['teamOne.total_score'])) updateData['teamOne.total_score'] = body['teamOne.total_score']
+    if (isDefined(body['teamOne.total_wickets'])) updateData['teamOne.total_wickets'] = body['teamOne.total_wickets']
+    if (isDefined(body['teamOne.total_balls'])) updateData['teamOne.total_balls'] = body['teamOne.total_balls']
+    if (isDefined(body['teamOne.extras'])) updateData['teamOne.extras'] = body['teamOne.extras']
+
+    if (isDefined(body['teamTwo.total_score'])) updateData['teamTwo.total_score'] = body['teamTwo.total_score']
+    if (isDefined(body['teamTwo.total_wickets'])) updateData['teamTwo.total_wickets'] = body['teamTwo.total_wickets']
+    if (isDefined(body['teamTwo.total_balls'])) updateData['teamTwo.total_balls'] = body['teamTwo.total_balls']
+    if (isDefined(body['teamTwo.extras'])) updateData['teamTwo.extras'] = body['teamTwo.extras']
+
+    // Optional players
+    if (isDefined(body.teamOne?.players)) updateData['teamOne.players'] = body.teamOne.players
+    if (isDefined(body.teamTwo?.players)) updateData['teamTwo.players'] = body.teamTwo.players
+
+    // CHANGED: scoringState forced to use normalizedInnings
+    if (isDefined(body.scoringState)) {
+      updateData.scoringState = {
+        ...body.scoringState,
+        currentInnings: normalizedInnings,
+      }
+    }
+
+    // Optional ballHistory passthrough
+    if (isDefined(body.ballHistory)) {
+      updateData.ballHistory = body.ballHistory
+    }
+
+    // NEW: defensive auto-swap teams on innings change if client forgot
+    const inningsChangedTo2 = before.innings !== 2 && normalizedInnings === 2
+    const noTeamsProvided = !isDefined(body.batting_team) && !isDefined(body.bowling_team)
+    if (inningsChangedTo2 && noTeamsProvided) {
+      updateData.batting_team = before.bowl
+      updateData.bowling_team = before.bat
+      console.log('🔄 [API] Auto-swapped teams for second innings:', {
+        batting_team: updateData.batting_team,
+        bowling_team: updateData.bowling_team,
+      })
+    }
 
     updateData.updatedAt = new Date()
 
-    console.log('📝 [API] Update data:', JSON.stringify(updateData, null, 2))
+    console.log('📝 [API] Update data (computed):', JSON.stringify(updateData, null, 2))
+    console.log('🧭 [API] Innings before/after:', {
+      before,
+      after: {
+        innings: updateData.currentInnings,
+        bat: updateData.batting_team ?? before.bat,
+        bowl: updateData.bowling_team ?? before.bowl,
+        target: updateData.target ?? before.target,
+      },
+    })
 
-    // Update match
     const updatedMatch = await Match.findByIdAndUpdate(
       params.id,
       { $set: updateData },
@@ -97,6 +142,20 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     const duration = Date.now() - startTime
     console.log(`✅ [API] Match updated successfully in ${duration}ms`)
+    console.log('✅ [API] Post-update snapshot:', {
+      currentInnings: updatedMatch.currentInnings,
+      batting_team: updatedMatch.batting_team,
+      bowling_team: updatedMatch.bowling_team,
+      target: updatedMatch.target,
+      scoringState: updatedMatch.scoringState
+        ? {
+            currentInnings: updatedMatch.scoringState.currentInnings,
+            selectedBatsman1: updatedMatch.scoringState.selectedBatsman1,
+            selectedBatsman2: updatedMatch.scoringState.selectedBatsman2,
+            selectedBowler: updatedMatch.scoringState.selectedBowler,
+          }
+        : null,
+    })
 
     return NextResponse.json({
       success: true,

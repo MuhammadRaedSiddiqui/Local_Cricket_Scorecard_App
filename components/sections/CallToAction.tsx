@@ -4,8 +4,20 @@ import { Button } from '@/components/ui/button'
 import { ArrowRight, Sparkles } from 'lucide-react'
 import ScrollAnimation from '@/components/animations/ScrollAnimation'
 import { motion } from 'framer-motion'
+import { useRouter } from 'next/navigation'
 
 export default function CallToAction() {
+  const router = useRouter()
+
+  const handleCreateScorecard = () => {
+    // Check if user is authenticated
+    const token = localStorage.getItem('auth_token')
+    if (token) {
+      router.push('/matches/create')
+    } else {
+      router.push('/register')
+    }
+  }
   return (
     <section className="py-20 bg-gradient-to-br from-primary-50 via-white to-accent-50 relative overflow-hidden">
       {/* Background decorations */}
@@ -59,7 +71,7 @@ export default function CallToAction() {
               whileHover={{ scale: 1.02 }}
               transition={{ type: "spring", stiffness: 300 }}
             >
-              <Button size="lg" className="group shadow-xl">
+              <Button size="lg" className="group shadow-xl" onClick={handleCreateScorecard}>
                 Create a Scorecard
                 <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
               </Button>

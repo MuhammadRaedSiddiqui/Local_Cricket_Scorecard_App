@@ -1,0 +1,17 @@
+{
+  "timestamp": "20251106_171246",
+  "success_rate": 100.0,
+  "test_results": {
+    "environment_setup": true,
+    "match_creation": true,
+    "role_access_control": true,
+    "code_based_joining": true,
+    "matches_visibility": true,
+    "role_permissions": true,
+    "cross_user_scoring": true
+  },
+  "match_id": "690c90b5e0c10042c135a696",
+  "match_code": "JS76X8",
+  "users_tested": 5,
+  "test_type": "advanced_invite_role_management"
+}

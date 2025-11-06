@@ -16,15 +16,61 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Aggregate player statistics
+    // Aggregate player statistics and team statistics
     const playerStatsMap = new Map();
+    const teamStatsMap = new Map();
 
     matches.forEach((match: any) => {
       const teams = [match.teamOne, match.teamTwo];
+      
+      // Determine match winner for team stats
+      let winnerTeam = null;
+      let loserTeam = null;
+      
+      if (match.result && match.result.winner) {
+        if (match.result.winner === 'team_one') {
+          winnerTeam = match.teamOne;
+          loserTeam = match.teamTwo;
+        } else if (match.result.winner === 'team_two') {
+          winnerTeam = match.teamTwo;
+          loserTeam = match.teamOne;
+        }
+      }
 
-      teams.forEach((team) => {
+      teams.forEach((team, index) => {
         if (!team?.players) return;
+        
+        // Team Statistics
+        const teamName = team.name;
+        if (!teamStatsMap.has(teamName)) {
+          teamStatsMap.set(teamName, {
+            name: teamName,
+            matches: new Set(),
+            wins: 0,
+            losses: 0,
+            totalRuns: 0,
+            highestScore: 0,
+            totalWickets: 0,
+            matchScores: []
+          });
+        }
 
+        const teamStats = teamStatsMap.get(teamName);
+        teamStats.matches.add(match._id.toString());
+        
+        if (winnerTeam && winnerTeam.name === teamName) {
+          teamStats.wins += 1;
+        } else if (loserTeam && loserTeam.name === teamName) {
+          teamStats.losses += 1;
+        }
+        
+        const teamScore = team.total_score || 0;
+        teamStats.totalRuns += teamScore;
+        teamStats.highestScore = Math.max(teamStats.highestScore, teamScore);
+        teamStats.totalWickets += team.total_wickets || 0;
+        teamStats.matchScores.push(teamScore);
+
+        // Player Statistics
         team.players.forEach((player: any) => {
           const playerName = player.name;
 
@@ -127,10 +173,39 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.wickets - a.wickets)
       .slice(0, 10);
 
+    // Calculate team leaderboard
+    const teamStats = Array.from(teamStatsMap.values())
+      .map((stats) => {
+        const matches = stats.matches.size;
+        const winRate = matches > 0 ? Math.round((stats.wins / matches) * 100) : 0;
+        const averageScore = stats.matchScores.length > 0 
+          ? Math.round(stats.totalRuns / stats.matchScores.length) 
+          : 0;
+
+        return {
+          name: stats.name,
+          matches: matches,
+          wins: stats.wins,
+          losses: stats.losses,
+          winRate: winRate,
+          totalRuns: stats.totalRuns,
+          averageScore: averageScore,
+          highestScore: stats.highestScore,
+          totalWickets: stats.totalWickets,
+        };
+      })
+      .sort((a, b) => {
+        // Sort by win rate first, then by wins
+        if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+        return b.wins - a.wins;
+      })
+      .slice(0, 10);
+
 
     return NextResponse.json({
       battingStats,
       bowlingStats,
+      teamStats,
       totalMatches: matches.length
     });
 

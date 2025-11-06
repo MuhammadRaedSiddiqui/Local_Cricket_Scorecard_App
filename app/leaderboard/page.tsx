@@ -27,6 +27,7 @@ async function getLeaderboardData() {
     return { 
       battingStats: [], 
       bowlingStats: [],
+      teamStats: [],
       totalMatches: 0 
     };
   }
@@ -70,6 +71,7 @@ export default async function LeaderboardPage() {
             <LeaderboardTabs
               battingStats={data.battingStats}
               bowlingStats={data.bowlingStats}
+              teamStats={data.teamStats}
               totalMatches={data.totalMatches}
             />
           </Suspense>

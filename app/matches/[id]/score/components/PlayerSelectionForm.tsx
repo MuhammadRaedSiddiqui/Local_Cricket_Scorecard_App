@@ -83,13 +83,21 @@ export function PlayerSelectionForm({
               Opening Batsman 1 (Striker) *
             </label>
             <select
+              id="striker-select"
+              name="striker-select"
               value={batsman1}
-              onChange={(e) => setBatsman1(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value
+                setBatsman1(value)
+                e.target.dispatchEvent(new Event('input', { bubbles: true }))
+              }}
               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
               disabled={loading}
               required
+              data-testid="striker-select"
+              aria-label="Opening Batsman 1 (Striker)"
             >
-              <option value="">Select Batsman</option>
+              <option value="__none__">Select Batsman</option>
               {battingPlayers.map((player, i) => (
                 <option key={i} value={player.name}>
                   {player.name}
@@ -98,6 +106,7 @@ export function PlayerSelectionForm({
                 </option>
               ))}
             </select>
+
           </div>
 
           {/* Batsman 2 (Non-Striker) */}
@@ -111,6 +120,8 @@ export function PlayerSelectionForm({
               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
               disabled={loading}
               required
+              data-testid="non-striker-select"
+              aria-label="Select opening batsman 2 (non-striker)"
             >
               <option value="">Select Batsman</option>
               {battingPlayers
@@ -136,6 +147,8 @@ export function PlayerSelectionForm({
               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
               disabled={loading}
               required
+              data-testid="bowler-select"
+              aria-label="Select opening bowler"
             >
               <option value="">Select Bowler</option>
               {bowlingPlayers.map((player, i) => (
@@ -163,6 +176,7 @@ export function PlayerSelectionForm({
             !batsman1 || !batsman2 || !bowler || batsman1 === batsman2 || loading
           }
           className="w-full bg-green-500 hover:bg-green-600 disabled:opacity-50"
+          data-testid="start-scoring-button"
         >
           {loading ? 'Saving...' : 'Start Scoring'}
         </Button>

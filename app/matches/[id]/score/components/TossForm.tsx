@@ -66,6 +66,7 @@ export function TossForm({
                   onChange={(e) => setTossWinner(e.target.value)}
                   className="text-green-600"
                   disabled={loading}
+                  data-testid={`toss-winner-${teamOneName.toLowerCase().replace(/\s+/g, '-')}`}
                 />
                 <span className="font-medium">{teamOneName}</span>
               </label>
@@ -78,6 +79,7 @@ export function TossForm({
                   onChange={(e) => setTossWinner(e.target.value)}
                   className="text-green-600"
                   disabled={loading}
+                  data-testid={`toss-winner-${teamTwoName.toLowerCase().replace(/\s+/g, '-')}`}
                 />
                 <span className="font-medium">{teamTwoName}</span>
               </label>
@@ -99,6 +101,7 @@ export function TossForm({
                   onChange={() => setTossDecision('bat')}
                   className="text-green-600"
                   disabled={loading}
+                  data-testid="toss-decision-bat"
                 />
                 <span className="font-medium">Bat First</span>
               </label>
@@ -111,6 +114,7 @@ export function TossForm({
                   onChange={() => setTossDecision('bowl')}
                   className="text-green-600"
                   disabled={loading}
+                  data-testid="toss-decision-bowl"
                 />
                 <span className="font-medium">Bowl First</span>
               </label>
@@ -122,6 +126,7 @@ export function TossForm({
           type="submit"
           disabled={!tossWinner || !tossDecision || loading}
           className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 disabled:opacity-50"
+          data-testid="complete-toss-button"
         >
           {loading ? 'Saving...' : 'Complete Toss & Continue'}
         </Button>

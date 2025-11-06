@@ -1,0 +1,45 @@
+// Check database state
+const testDB = async () => {
+  try {
+    const response = await fetch('http://localhost:3000/api/matches', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Matches API response:', data);
+      console.log('Created matches:', data.data?.created?.length || 0);
+      console.log('Invited matches:', data.data?.invited?.length || 0);
+    } else {
+      console.log('API error:', response.status, response.statusText);
+      const errorData = await response.json();
+      console.log('Error details:', errorData);
+    }
+  } catch (error) {
+    console.error('Network error:', error);
+  }
+};
+
+// Test without auth token
+const testPublic = async () => {
+  try {
+    const response = await fetch('http://localhost:3000/api/health');
+    const data = await response.json();
+    console.log('Health check:', data);
+  } catch (error) {
+    console.error('Health check failed:', error);
+  }
+};
+
+testPublic();
+
+// Check if we have any auth token
+const token = localStorage.getItem('auth_token');
+if (token) {
+  console.log('Auth token exists, testing matches API...');
+  testDB();
+} else {
+  console.log('No auth token found');
+}

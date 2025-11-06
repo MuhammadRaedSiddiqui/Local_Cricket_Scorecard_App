@@ -45,7 +45,7 @@ export default function SimplifiedScoringPage() {
   const [outBatsman, setOutBatsman] = useState('') // ✅ New - which batsman is out
 
 
-    const [currentInnings, setCurrentInnings] = useState(1) // ✅ Add this
+  const [currentInnings, setCurrentInnings] = useState(1) // ✅ Add this
 
   // Derived values
   const battingTeam = getBattingTeam()
@@ -104,6 +104,18 @@ export default function SimplifiedScoringPage() {
       logger.info('PAGE', 'Match loaded', matchData)
       setMatch(matchData)
 
+      // ⚙️ Sync local innings from root (always)
+      const rootInnings = matchData.currentInnings ?? 1
+      const ssInnings = matchData.scoringState?.currentInnings
+      if (ssInnings && ssInnings !== rootInnings) {
+        logger.warning('SYNC', 'Innings mismatch detected on load', {
+          rootInnings,
+          scoringStateInnings: ssInnings,
+        })
+      }
+      setCurrentInnings(rootInnings)
+
+
       if (!matchData.toss_winner) {
         logger.info('PAGE', 'No toss found, showing toss form')
         setState('TOSS')
@@ -118,19 +130,32 @@ export default function SimplifiedScoringPage() {
 
         if (!hasPlayers) {
           logger.info('PAGE', 'Toss complete, no players, showing player selection')
+          // ✅ Ensure innings stays synced even when no players
+          setCurrentInnings(rootInnings)
           setState('PLAYER_SELECTION')
         } else {
           logger.info('PAGE', 'Players found, restoring scoring state')
 
           // ✅ Restore ALL state
-          setBatsman1(matchData.scoringState.selectedBatsman1)
-          setBatsman2(matchData.scoringState.selectedBatsman2)
-          setBowler(matchData.scoringState.selectedBowler)
-          setCurrentStriker(matchData.scoringState.currentStriker || 'batsman1') // ✅ Restore striker
-          setCurrentOver(matchData.scoringState.currentOver || [])
-          setOutBatsmen(matchData.scoringState.outBatsmen || []) // ✅ Restore out batsmen
-          setPreviousBowler(matchData.scoringState.previousBowler || '')
-          setCurrentInnings(matchData.scoringState.currentInnings || 1)
+          if (matchData.scoringState) {
+            setBatsman1(matchData.scoringState.selectedBatsman1)
+            setBatsman2(matchData.scoringState.selectedBatsman2)
+            setBowler(matchData.scoringState.selectedBowler)
+            setCurrentStriker(matchData.scoringState.currentStriker || 'batsman1') // ✅ Restore striker
+            setCurrentOver(matchData.scoringState.currentOver || [])
+            setOutBatsmen(matchData.scoringState.outBatsmen || []) // ✅ Restore out batsmen
+            setPreviousBowler(matchData.scoringState.previousBowler || '')
+          }
+          // Prefer root-level innings and log mismatch (self-heal locally)
+          const rootInnings = matchData.currentInnings ?? 1
+          const ssInnings = matchData.scoringState?.currentInnings
+          if (ssInnings && ssInnings !== rootInnings) {
+            logger.warning('SYNC', 'Innings mismatch detected', {
+              rootInnings,
+              scoringStateInnings: ssInnings,
+            })
+          }
+          setCurrentInnings(rootInnings)
 
           const team = getBattingTeamFromMatch(matchData)
           if (team) {
@@ -140,12 +165,12 @@ export default function SimplifiedScoringPage() {
           }
 
           logger.debug('PAGE', 'State restored', {
-            batsman1: matchData.scoringState.selectedBatsman1,
-            batsman2: matchData.scoringState.selectedBatsman2,
-            bowler: matchData.scoringState.selectedBowler,
-            currentStriker: matchData.scoringState.currentStriker,
-            currentOver: matchData.scoringState.currentOver,
-            outBatsmen: matchData.scoringState.outBatsmen,
+            batsman1: matchData.scoringState?.selectedBatsman1,
+            batsman2: matchData.scoringState?.selectedBatsman2,
+            bowler: matchData.scoringState?.selectedBowler,
+            currentStriker: matchData.scoringState?.currentStriker,
+            currentOver: matchData.scoringState?.currentOver,
+            outBatsmen: matchData.scoringState?.outBatsmen,
             score: team?.total_score,
           })
 
@@ -155,9 +180,22 @@ export default function SimplifiedScoringPage() {
       }
     } catch (err: any) {
       logger.error('PAGE', 'Failed to load match', err)
-      setError(err.message || 'Failed to load match')
+      
+      // More specific error messages
+      let errorMessage = 'Failed to load match'
+      if (err.message?.includes('401') || err.message?.includes('Unauthorized')) {
+        errorMessage = 'Authentication failed. Please log in again.'
+      } else if (err.message?.includes('404')) {
+        errorMessage = 'Match not found. Please check the match ID.'
+      } else if (err.message?.includes('timeout')) {
+        errorMessage = 'Request timed out. Please check your connection and try again.'
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+      
+      setError(errorMessage)
       setState('ERROR')
-      toast.error(err.message || 'Failed to load match')
+      toast.error(errorMessage)
     }
   }
 
@@ -228,58 +266,59 @@ export default function SimplifiedScoringPage() {
   }
 
   async function handlePlayersSelected(
-  selectedBatsman1: string,
-  selectedBatsman2: string,
-  selectedBowler: string
-) {
-  logger.info('PLAYERS', 'Processing player selection', {
-    selectedBatsman1,
-    selectedBatsman2,
-    selectedBowler,
-  })
-
-  try {
-    if (!match) throw new Error('Match not loaded')
-
-    await wait(1000)
-
-    await apiCall(`/api/matches/${matchId}/score`, {
-      method: 'POST',
-      body: {
-        scoringState: {
-          selectedBatsman1: selectedBatsman1,
-          selectedBatsman2: selectedBatsman2,
-          selectedBowler: selectedBowler,
-          currentStriker: 'batsman1',
-          currentOver: [],
-          outBatsmen: [],
-          currentInnings: currentInnings, // ✅ Use current innings
-          previousBowler: '',
-        },
-      },
-      timeout: 5000,
+    selectedBatsman1: string,
+    selectedBatsman2: string,
+    selectedBowler: string
+  ) {
+    logger.info('PLAYERS', 'Processing player selection', {
+      selectedBatsman1,
+      selectedBatsman2,
+      selectedBowler,
     })
 
-    logger.success('PLAYERS', 'Players saved to database')
+    try {
+      if (!match) throw new Error('Match not loaded')
 
-    setBatsman1(selectedBatsman1)
-    setBatsman2(selectedBatsman2)
-    setBowler(selectedBowler)
-    setCurrentStriker('batsman1')
-    setCurrentOver([])
-    setOutBatsmen([])
+      await wait(1000)
 
-    await wait(1000)
+      await apiCall(`/api/matches/${matchId}/score`, {
+        method: 'POST',
+        body: {
+          currentInnings,
+          scoringState: {
+            selectedBatsman1: selectedBatsman1,
+            selectedBatsman2: selectedBatsman2,
+            selectedBowler: selectedBowler,
+            currentStriker: 'batsman1',
+            currentOver: [],
+            outBatsmen: [],
+            currentInnings,
+            previousBowler: '',
+          },
+        },
+        timeout: 5000,
+      })
 
-    toast.success('Players selected! Start scoring')
+      logger.success('PLAYERS', 'Players saved to database')
 
-    setState('SCORING')
-  } catch (err: any) {
-    logger.error('PLAYERS', 'Failed to save players', err)
-    toast.error(err.message || 'Failed to save players')
-    throw err
+      setBatsman1(selectedBatsman1)
+      setBatsman2(selectedBatsman2)
+      setBowler(selectedBowler)
+      setCurrentStriker('batsman1')
+      setCurrentOver([])
+      setOutBatsmen([])
+
+      await wait(1000)
+
+      toast.success('Players selected! Start scoring')
+
+      setState('SCORING')
+    } catch (err: any) {
+      logger.error('PLAYERS', 'Failed to save players', err)
+      toast.error(err.message || 'Failed to save players')
+      throw err
+    }
   }
-}
 
   async function handleBallRecorded(outcome: string) {
     logger.info('BALL', `Recording ball: ${outcome}`)
@@ -368,6 +407,7 @@ export default function SimplifiedScoringPage() {
         await apiCall(`/api/matches/${matchId}/score`, {
           method: 'POST',
           body: {
+            currentInnings,
             [`${teamToUpdate}.total_score`]: newScore,
             [`${teamToUpdate}.total_wickets`]: newWickets,
             [`${teamToUpdate}.total_balls`]: newBalls,
@@ -379,7 +419,7 @@ export default function SimplifiedScoringPage() {
               currentStriker: currentStriker,
               currentOver: newCurrentOver,
               outBatsmen: newOutBatsmen,
-              currentInnings: 1,
+              currentInnings,
             },
           },
           timeout: 5000,
@@ -467,6 +507,7 @@ export default function SimplifiedScoringPage() {
       await apiCall(`/api/matches/${matchId}/score`, {
         method: 'POST',
         body: {
+          currentInnings,
           [`${teamToUpdate}.total_score`]: newScore,
           [`${teamToUpdate}.total_wickets`]: newWickets,
           [`${teamToUpdate}.total_balls`]: newBalls,
@@ -478,7 +519,7 @@ export default function SimplifiedScoringPage() {
             currentStriker: newStriker, // ✅ Save new striker
             currentOver: newCurrentOver,
             outBatsmen: outBatsmen,
-            currentInnings: 1,
+            currentInnings,
           },
         },
         timeout: 5000,
@@ -494,125 +535,128 @@ export default function SimplifiedScoringPage() {
 
 
   async function handleInningsComplete(finalScore: number, finalWickets: number) {
-  logger.info('INNINGS', 'Innings completed', {
-    score: finalScore,
-    wickets: finalWickets,
-    currentInnings,
-  })
+    logger.info('INNINGS', 'Innings completed', {
+      score: finalScore,
+      wickets: finalWickets,
+      currentInnings,
+    })
 
-  try {
-    if (!match) throw new Error('Match not loaded')
+    try {
+      if (!match) throw new Error('Match not loaded')
 
-    const teamToUpdate =
-      match.batting_team === match.teamOne.name ? 'teamOne' : 'teamTwo'
+      const teamToUpdate =
+        match.batting_team === match.teamOne.name ? 'teamOne' : 'teamTwo'
 
-    // ✅ Check if this is first or second innings
-    if (currentInnings === 1) {
-      // ✅ First innings complete - start second innings
-      const target = finalScore + 1
+      // ✅ Check if this is first or second innings
+      if (currentInnings === 1) {
+        // ✅ First innings complete - start second innings
+        const target = finalScore + 1
 
-      logger.info('INNINGS', 'First innings complete, setting target', {
-        target,
-      })
+        logger.info('INNINGS', 'First innings complete, setting target', {
+          target,
+        })
 
-      // Swap teams
-      const newBattingTeam = match.bowling_team!
-      const newBowlingTeam = match.batting_team!
+        // Swap teams
+        const newBattingTeam = match.bowling_team!
+        const newBowlingTeam = match.batting_team!
 
-      await wait(1000)
+        await wait(1000)
 
-      // Update match with target and reset for second innings
-      await apiCall(`/api/matches/${matchId}/score`, {
-        method: 'POST',
-        body: {
-          target: target,
-          scoringState: {
-            selectedBatsman1: '',
-            selectedBatsman2: '',
-            selectedBowler: '',
-            previousBowler: '',
-            currentStriker: 'batsman1',
-            currentOver: [],
-            outBatsmen: [],
-            currentInnings: 2,
+        // Update match with target and reset for second innings
+        await apiCall(`/api/matches/${matchId}/score`, {
+          method: 'POST',
+          body: {
+            currentInnings: 2,          // ✅ root
+            batting_team: newBattingTeam, // ✅ root
+            bowling_team: newBowlingTeam,
+            target: target,
+            scoringState: {
+              selectedBatsman1: '',
+              selectedBatsman2: '',
+              selectedBowler: '',
+              previousBowler: '',
+              currentStriker: 'batsman1',
+              currentOver: [],
+              outBatsmen: [],
+              currentInnings: 2,
+            },
           },
-        },
-        timeout: 5000,
-      })
+          timeout: 5000,
+        })
 
-      logger.success('INNINGS', 'Target set, second innings ready')
+        logger.success('INNINGS', 'Target set, second innings ready')
 
-      toast.success(`First innings complete! Target: ${target}`, {
-        duration: 4000,
-      })
+        toast.success(`First innings complete! Target: ${target}`, {
+          duration: 4000,
+        })
 
-      // Update local state
-      setMatch({
-        ...match,
-        target: target,
-        batting_team: newBattingTeam,
-        bowling_team: newBowlingTeam,
-      })
+        // Update local state
+        setMatch({
+          ...match,
+          target: target,
+          batting_team: newBattingTeam,
+          bowling_team: newBowlingTeam,
+        })
+        setCurrentInnings(2)
+        // Reset for second innings
+        setBatsman1('')
+        setBatsman2('')
+        setBowler('')
+        setCurrentStriker('batsman1')
+        setCurrentOver([])
+        setOutBatsmen([])
+        setPreviousBowler('')
+        setScore(0)
+        setWickets(0)
+        setBalls(0)
 
-      // Reset for second innings
-      setBatsman1('')
-      setBatsman2('')
-      setBowler('')
-      setCurrentStriker('batsman1')
-      setCurrentOver([])
-      setOutBatsmen([])
-      setPreviousBowler('')
-      setScore(0)
-      setWickets(0)
-      setBalls(0)
+        await wait(2000)
 
-      await wait(2000)
-
-      // Show player selection for second innings
-      setState('PLAYER_SELECTION')
-      toast('Select opening batsmen and bowler for second innings')
-    } else {
-      // ✅ Second innings complete - match over
-      logger.info('INNINGS', 'Second innings complete - match over')
-
-      await wait(1000)
-
-      // Determine winner
-      const target = match.target || 0
-      let winMessage = ''
-
-      if (finalScore >= target) {
-        const wicketsLeft = (battingTeam?.players.length || 10) - finalWickets
-        winMessage = `${match.batting_team} won by ${wicketsLeft} wickets!`
+        // Show player selection for second innings
+        setState('PLAYER_SELECTION')
+        toast('Select opening batsmen and bowler for second innings')
       } else {
-        const runDiff = target - 1 - finalScore
-        winMessage = `${match.bowling_team} won by ${runDiff} runs!`
+        // ✅ Second innings complete - match over
+        logger.info('INNINGS', 'Second innings complete - match over')
+
+        await wait(1000)
+
+        // Determine winner
+        const target = match.target || 0
+        let winMessage = ''
+
+        if (finalScore >= target) {
+          const wicketsLeft = (battingTeam?.players.length || 10) - finalWickets
+          winMessage = `${match.batting_team} won by ${wicketsLeft} wickets!`
+        } else {
+          const runDiff = target - 1 - finalScore
+          winMessage = `${match.bowling_team} won by ${runDiff} runs!`
+        }
+
+        // Mark match as completed
+        await apiCall(`/api/matches/${matchId}/score`, {
+          method: 'POST',
+          body: {
+            status: 'completed',
+            scoringState: null, // Clear scoring state
+          },
+          timeout: 5000,
+        })
+
+        logger.success('MATCH', 'Match completed', { winner: winMessage })
+
+        toast.success(winMessage, { duration: 5000 })
+
+        await wait(3000)
+
+        // Redirect to match details
+        router.push(`/matches/${matchId}`)
       }
-
-      // Mark match as completed
-      await apiCall(`/api/matches/${matchId}/score`, {
-        method: 'POST',
-        body: {
-          status: 'completed',
-          scoringState: null, // Clear scoring state
-        },
-        timeout: 5000,
-      })
-
-      logger.success('MATCH', 'Match completed', { winner: winMessage })
-
-      toast.success(winMessage, { duration: 5000 })
-
-      await wait(3000)
-
-      // Redirect to match details
-      router.push(`/matches/${matchId}`)
+    } catch (err: any) {
+      logger.error('INNINGS', 'Failed to handle innings end', err)
+      toast.error(err.message || 'Failed to end innings')
     }
-  } catch (err: any) {
-    logger.error('INNINGS', 'Failed to handle innings end', err)
-    toast.error(err.message || 'Failed to end innings')
   }
-}
 
 
   async function handleBowlerChange(newBowler: string) {
@@ -632,6 +676,7 @@ export default function SimplifiedScoringPage() {
       await apiCall(`/api/matches/${matchId}/score`, {
         method: 'POST',
         body: {
+          currentInnings,
           scoringState: {
             selectedBatsman1: batsman1,
             selectedBatsman2: batsman2,
@@ -640,7 +685,7 @@ export default function SimplifiedScoringPage() {
             currentStriker: currentStriker, // ✅ Preserve striker
             currentOver: [],
             outBatsmen: outBatsmen,
-            currentInnings: 1,
+            currentInnings,
           },
         },
         timeout: 5000,
@@ -694,6 +739,7 @@ export default function SimplifiedScoringPage() {
       await apiCall(`/api/matches/${matchId}/score`, {
         method: 'POST',
         body: {
+          currentInnings,
           scoringState: {
             selectedBatsman1: newBatsman1, // ✅ Use calculated value
             selectedBatsman2: newBatsman2, // ✅ Use calculated value
@@ -702,7 +748,7 @@ export default function SimplifiedScoringPage() {
             currentStriker: currentStriker,
             currentOver: currentOver,
             outBatsmen: outBatsmen,
-            currentInnings: 1,
+            currentInnings,
           },
         },
         timeout: 5000,
@@ -738,7 +784,7 @@ export default function SimplifiedScoringPage() {
         <Card className="p-6 max-w-md">
           <h2 className="text-xl font-bold text-red-600 mb-4">Error</h2>
           <p className="text-gray-700 mb-4">{error}</p>
-          <Button onClick={loadMatch} className="w-full">
+          <Button onClick={loadMatch} className="w-full" data-testid="retry-button">
             Retry
           </Button>
         </Card>
@@ -780,7 +826,7 @@ export default function SimplifiedScoringPage() {
                 )}
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="secondary"
                   onClick={() => logger.downloadLogs()}
                 >
                   <Download className="h-4 w-4" />
@@ -797,6 +843,9 @@ export default function SimplifiedScoringPage() {
               <div className="text-xs font-mono space-y-1">
                 <div>
                   <strong>State:</strong> {state}
+                </div>
+                <div>
+                  <strong>Innings:</strong> {currentInnings}
                 </div>
                 <div className={batsman1 === batsman2 ? 'text-red-600 font-bold' : ''}>
                   <strong>Batsman1:</strong> {batsman1 || 'none'}{' '}

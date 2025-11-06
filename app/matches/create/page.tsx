@@ -26,7 +26,7 @@ export default function CreateMatchPage() {
 
   // Match Details
   const [matchData, setMatchData] = useState({
-    venue: 'abc',
+    venue: '',
     overs: 20,
     startTime: new Date().toISOString().slice(0, 16),
     isPrivate: false
@@ -34,58 +34,15 @@ export default function CreateMatchPage() {
 
   // Team 1
   const [team1, setTeam1] = useState<Team>({
-    name: 'pak',
-    players: [{
-      "name": "ali",
-      "is_captain": true,
-      "is_keeper": false
-    },
-    {
-      "name": "raza",
-      "is_captain": false,
-      "is_keeper": true
-    },
-    {
-      "name": "bilal",
-      "is_captain": false,
-      "is_keeper": false
-    },
-    {
-      "name": "rafay",
-      "is_captain": false,
-      "is_keeper": false
-    }
-    ]
+    name: '',
+    players: []
   })
 const [team1PlayerInput, setTeam1PlayerInput] = useState('')
 
 // Team 2
 const [team2, setTeam2] = useState<Team>({
-  name: 'Ind',
-  players: [{
-      "name": "hashim",
-      "is_captain": true,
-      "is_keeper": false
-    },
-    {
-      "name": "ahmar",
-      "is_captain": false,
-      "is_keeper": true
-    },
-    {
-      "name": "faiz",
-      "is_captain": false,
-      "is_keeper": false
-    },
-    {
-      "name": "meeran",
-      "is_captain": false,
-      "is_keeper": false
-    }]
-
-
-
-
+  name: '',
+  players: []
 })
 const [team2PlayerInput, setTeam2PlayerInput] = useState('')
 
