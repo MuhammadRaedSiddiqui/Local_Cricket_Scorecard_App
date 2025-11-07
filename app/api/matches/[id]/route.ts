@@ -24,17 +24,98 @@ export async function GET(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Match not found' }, { status: 404 })
     }
 
-    console.log('📥 Fetched match from DB:', {
+    // ✅ Debug: Log player stats to verify they're being retrieved
+    const teamOnePlayerStats = (match.teamOne?.players || []).map((p: any) => ({
+      name: p.name,
+      runs_scored: p.runs_scored,
+      balls_played: p.balls_played,
+      fours: p.fours,
+      sixes: p.sixes,
+      wickets: p.wickets,
+      balls_bowled: p.balls_bowled,
+      runs_conceded: p.runs_conceded,
+      is_out: p.is_out,
+    }))
+    
+    const teamTwoPlayerStats = (match.teamTwo?.players || []).map((p: any) => ({
+      name: p.name,
+      runs_scored: p.runs_scored,
+      balls_played: p.balls_played,
+      fours: p.fours,
+      sixes: p.sixes,
+      wickets: p.wickets,
+      balls_bowled: p.balls_bowled,
+      runs_conceded: p.runs_conceded,
+      is_out: p.is_out,
+    }))
+
+    console.log('📥 [GET] Fetched match from DB:', {
       id: match._id,
       tossWinner: match.toss_winner,
       battingTeam: match.batting_team,
       scoringState: match.scoringState,
+      teamOne: {
+        name: match.teamOne?.name,
+        total_score: match.teamOne?.total_score,
+        players_count: match.teamOne?.players?.length || 0,
+        player_stats: teamOnePlayerStats,
+      },
+      teamTwo: {
+        name: match.teamTwo?.name,
+        total_score: match.teamTwo?.total_score,
+        players_count: match.teamTwo?.players?.length || 0,
+        player_stats: teamTwoPlayerStats,
+      },
     })
 
-    // ✅ Return the FULL match object
+    // ✅ Ensure player arrays are properly included in response
+    // Convert to plain object to ensure proper JSON serialization
+    const matchData = {
+      ...match,
+      teamOne: match.teamOne ? {
+        ...match.teamOne,
+        players: (match.teamOne.players || []).map((p: any) => ({
+          ...p,
+          runs_scored: p.runs_scored || 0,
+          balls_played: p.balls_played || 0,
+          fours: p.fours || 0,
+          sixes: p.sixes || 0,
+          wickets: p.wickets || 0,
+          balls_bowled: p.balls_bowled || 0,
+          runs_conceded: p.runs_conceded || 0,
+          maidens: p.maidens || 0,
+          dots: p.dots || 0,
+          dot_balls: p.dot_balls || 0,
+          is_out: p.is_out || false,
+          is_captain: p.is_captain || false,
+          is_keeper: p.is_keeper || false,
+        })),
+      } : match.teamOne,
+      teamTwo: match.teamTwo ? {
+        ...match.teamTwo,
+        players: (match.teamTwo.players || []).map((p: any) => ({
+          ...p,
+          runs_scored: p.runs_scored || 0,
+          balls_played: p.balls_played || 0,
+          fours: p.fours || 0,
+          sixes: p.sixes || 0,
+          wickets: p.wickets || 0,
+          balls_bowled: p.balls_bowled || 0,
+          runs_conceded: p.runs_conceded || 0,
+          maidens: p.maidens || 0,
+          dots: p.dots || 0,
+          dot_balls: p.dot_balls || 0,
+          is_out: p.is_out || false,
+          is_captain: p.is_captain || false,
+          is_keeper: p.is_keeper || false,
+        })),
+      } : match.teamTwo,
+    }
+
+    // ✅ Return the FULL match object with properly serialized player stats
     return NextResponse.json({
       success: true,
-      data: match,
+      data: matchData,
     })
   } catch (error) {
     console.error('Get match error:', error)

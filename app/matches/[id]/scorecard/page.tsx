@@ -46,6 +46,7 @@ export default function ScorecardPage() {
       }
       
       const data = await response.json()
+      console.log("scoreboard data",data)
       setMatch(data.data)
     } catch (err) {
       toast.error('Failed to load match details')
@@ -153,7 +154,7 @@ export default function ScorecardPage() {
 
               <div className="flex items-center gap-2">
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   size="icon"
                   onClick={handleShare}
                   title="Share"
@@ -161,7 +162,7 @@ export default function ScorecardPage() {
                   <Share2 className="h-4 w-4" />
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   size="icon"
                   onClick={handlePrint}
                   title="Print"
@@ -265,7 +266,7 @@ export default function ScorecardPage() {
                   </div>
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="secondary"
                     onClick={copyMatchCode}
                     className="gap-2"
                   >
@@ -276,7 +277,7 @@ export default function ScorecardPage() {
 
                 <div className="mt-4 flex justify-center gap-3">
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     onClick={handleShare}
                     className="gap-2"
                   >
@@ -284,7 +285,7 @@ export default function ScorecardPage() {
                     Share Scorecard
                   </Button>
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     onClick={() => router.push(`/matches/${matchId}`)}
                     className="gap-2"
                   >

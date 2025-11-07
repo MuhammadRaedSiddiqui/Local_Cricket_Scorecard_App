@@ -55,7 +55,7 @@ interface ScoreCardProps {
 
 export default function ScoreCard({ match, isLive = false, viewersCount = 2300 }: ScoreCardProps) {
   const [activeTeam, setActiveTeam] = useState<'teamOne' | 'teamTwo'>('teamOne')
-  
+  console.log(match)
 
   // Default static data for preview/demo
   const defaultTeams = {

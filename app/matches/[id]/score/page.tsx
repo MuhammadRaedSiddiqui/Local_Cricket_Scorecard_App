@@ -320,6 +320,69 @@ export default function SimplifiedScoringPage() {
     }
   }
 
+  // Helper: apply per-player updates for striker and bowler
+  function applyPlayerUpdates(
+    outcome: string,
+    strikerName: string,
+    bowlerName: string,
+    battingPlayers: Player[],
+    bowlingPlayers: Player[]
+  ) {
+    const isWide = outcome === 'WD'
+    const isNoBall = outcome === 'NB'
+    const isBye = outcome === 'B'
+    const isLegBye = outcome === 'LB'
+    const isWicket = outcome === 'W'
+    const numeric = /^[0-6]$/.test(outcome) ? parseInt(outcome, 10) : null
+    const ballCounts = !isWide && !isNoBall // byes/leg-byes count as ball
+
+    const newBatting = battingPlayers.map((p) => {
+      if (p.name !== strikerName) return p
+      const bp = { ...p }
+
+      if (ballCounts) {
+        bp.balls_played = (bp.balls_played || 0) + 1
+      }
+
+      if (numeric !== null) {
+        bp.runs_scored = (bp.runs_scored || 0) + numeric
+        if (numeric === 4) bp.fours = (bp.fours || 0) + 1
+        if (numeric === 6) bp.sixes = (bp.sixes || 0) + 1
+      }
+
+      if (isWicket) {
+        bp.is_out = true
+        // Optional: bp.dismissal = 'out'
+      }
+
+      return bp
+    })
+
+    const newBowling = bowlingPlayers.map((p) => {
+      if (p.name !== bowlerName) return p
+      const bp = { ...p }
+
+      if (ballCounts) {
+        bp.balls_bowled = (bp.balls_bowled || 0) + 1
+      }
+
+      // Runs conceded: wides/noballs go to bowler; byes/leg-byes do not
+      if (numeric !== null) {
+        bp.runs_conceded = (bp.runs_conceded || 0) + numeric
+      } else if (isWide || isNoBall) {
+        bp.runs_conceded = (bp.runs_conceded || 0) + 1
+      }
+
+      if (isWicket && ballCounts) {
+        bp.wickets = (bp.wickets || 0) + 1
+      }
+
+      return bp
+    })
+
+    return { newBatting, newBowling }
+  }
+
   async function handleBallRecorded(outcome: string) {
     logger.info('BALL', `Recording ball: ${outcome}`)
 
@@ -375,7 +438,6 @@ export default function SimplifiedScoringPage() {
       setCurrentOver(newCurrentOver)
 
       // ✅ Handle wicket
-      // ✅ Handle wicket
       if (isWicket) {
         logger.info('BALL', 'Wicket fallen', {
           striker: currentStriker,
@@ -403,27 +465,55 @@ export default function SimplifiedScoringPage() {
 
         const teamToUpdate =
           match.batting_team === match.teamOne.name ? 'teamOne' : 'teamTwo'
+        const opponentKey =
+          match.bowling_team === match.teamOne.name ? 'teamOne' : 'teamTwo'
 
-        await apiCall(`/api/matches/${matchId}/score`, {
-          method: 'POST',
-          body: {
-            currentInnings,
-            [`${teamToUpdate}.total_score`]: newScore,
-            [`${teamToUpdate}.total_wickets`]: newWickets,
-            [`${teamToUpdate}.total_balls`]: newBalls,
-            scoringState: {
-              selectedBatsman1: batsman1,
-              selectedBatsman2: batsman2,
-              selectedBowler: bowler,
-              previousBowler: previousBowler,
-              currentStriker: currentStriker,
-              currentOver: newCurrentOver,
-              outBatsmen: newOutBatsmen,
+        // NEW: per-player updates
+        const strikerName =
+          currentStriker === 'batsman1' ? batsman1 : batsman2
+        const { newBatting, newBowling } = applyPlayerUpdates(
+          outcome,
+          strikerName,
+          bowler,
+          (match as any)[teamToUpdate].players,
+          (match as any)[opponentKey].players
+        )
+
+        const response = await apiCall<{ success: boolean; data: Match }>(
+          `/api/matches/${matchId}/score`,
+          {
+            method: 'POST',
+            body: {
               currentInnings,
+              [`${teamToUpdate}.total_score`]: newScore,
+              [`${teamToUpdate}.total_wickets`]: newWickets,
+              [`${teamToUpdate}.total_balls`]: newBalls,
+              // NEW: write updated player arrays
+              [`${teamToUpdate}.players`]: newBatting,
+              [`${opponentKey}.players`]: newBowling,
+              scoringState: {
+                selectedBatsman1: batsman1,
+                selectedBatsman2: batsman2,
+                selectedBowler: bowler,
+                previousBowler: previousBowler,
+                currentStriker: currentStriker,
+                currentOver: newCurrentOver,
+                outBatsmen: newOutBatsmen,
+                currentInnings,
+              },
             },
-          },
-          timeout: 5000,
-        })
+            timeout: 5000,
+          }
+        )
+
+        // ✅ CRITICAL: Update match state with latest data from database
+        if (response.success && response.data) {
+          setMatch(response.data)
+          logger.debug('BALL', 'Match state updated after wicket', {
+            teamOne_players: response.data.teamOne?.players?.length,
+            teamTwo_players: response.data.teamTwo?.players?.length,
+          })
+        }
 
         logger.success('BALL', 'Wicket saved to database')
         toast.error(`Wicket! ${dismissedBatsman} is out`)
@@ -503,27 +593,54 @@ export default function SimplifiedScoringPage() {
 
       const teamToUpdate =
         match.batting_team === match.teamOne.name ? 'teamOne' : 'teamTwo'
+      const opponentKey =
+        match.bowling_team === match.teamOne.name ? 'teamOne' : 'teamTwo'
 
-      await apiCall(`/api/matches/${matchId}/score`, {
-        method: 'POST',
-        body: {
-          currentInnings,
-          [`${teamToUpdate}.total_score`]: newScore,
-          [`${teamToUpdate}.total_wickets`]: newWickets,
-          [`${teamToUpdate}.total_balls`]: newBalls,
-          scoringState: {
-            selectedBatsman1: batsman1,
-            selectedBatsman2: batsman2,
-            selectedBowler: bowler,
-            previousBowler: previousBowler,
-            currentStriker: newStriker, // ✅ Save new striker
-            currentOver: newCurrentOver,
-            outBatsmen: outBatsmen,
+      // NEW: per-player updates (normal ball)
+      const strikerName = currentStriker === 'batsman1' ? batsman1 : batsman2
+      const { newBatting, newBowling } = applyPlayerUpdates(
+        outcome,
+        strikerName,
+        bowler,
+        (match as any)[teamToUpdate].players,
+        (match as any)[opponentKey].players
+      )
+
+      const response = await apiCall<{ success: boolean; data: Match }>(
+        `/api/matches/${matchId}/score`,
+        {
+          method: 'POST',
+          body: {
             currentInnings,
+            [`${teamToUpdate}.total_score`]: newScore,
+            [`${teamToUpdate}.total_wickets`]: newWickets,
+            [`${teamToUpdate}.total_balls`]: newBalls,
+            // NEW: write updated player arrays
+            [`${teamToUpdate}.players`]: newBatting,
+            [`${opponentKey}.players`]: newBowling,
+            scoringState: {
+              selectedBatsman1: batsman1,
+              selectedBatsman2: batsman2,
+              selectedBowler: bowler,
+              previousBowler: previousBowler,
+              currentStriker: newStriker,
+              currentOver: newCurrentOver,
+              outBatsmen: outBatsmen,
+              currentInnings,
+            },
           },
-        },
-        timeout: 5000,
-      })
+          timeout: 5000,
+        }
+      )
+
+      // ✅ CRITICAL: Update match state with latest data from database
+      if (response.success && response.data) {
+        setMatch(response.data)
+        logger.debug('BALL', 'Match state updated with latest player stats', {
+          teamOne_players: response.data.teamOne?.players?.length,
+          teamTwo_players: response.data.teamTwo?.players?.length,
+        })
+      }
 
       logger.success('BALL', 'Ball saved to database')
     } catch (err: any) {

@@ -1,0 +1,152 @@
+from pathlib import Path
+
+ROOT = Path(__file__).parent
+OUT = ROOT / "selected_code_dump.txt"
+
+FILES = [
+    # Root configs
+    "tsconfig.json",
+    "tailwind.config.ts",
+    "postcss.config.mjs",
+    "package.json",
+    "package-lock.json",
+    "next.config.js",
+    "middleware.ts",
+    "eslint.config.mjs",
+
+    # utils
+    "utils/apiHelpers.ts",
+    "utils/debugLogger.ts",
+    "utils/scoringValidations.ts",
+
+    # types
+    "types/index.ts",
+    "types/match.ts",
+
+    # models
+    "models/index.ts",
+    "models/Match.ts",
+    "models/User.ts",
+
+    # lib
+    "lib/api-client.ts",
+    "lib/auth.ts",
+    "lib/db.ts",
+    "lib/pusher-client.ts",
+    "lib/pusher.ts",
+    "lib/utils.ts",
+
+    # app root
+    "app/globals.css",
+    "app/layout.tsx",
+    "app/page.tsx",
+
+    # app route group (auth)
+    "app/(auth)/login/page.tsx",
+    "app/(auth)/register/page.tsx",
+
+    # app api
+    "app/api/auth/login/route.ts",
+    "app/api/auth/logout/route.ts",
+    "app/api/auth/me/route.ts",
+    "app/api/auth/register/route.ts",
+    "app/api/health/route.ts",
+    "app/api/leaderboard/route.ts",
+    "app/api/matches/route.ts",
+    "app/api/matches/[id]/route.ts",
+    "app/api/matches/[id]/debug/route.ts",
+    "app/api/matches/[id]/score/route.ts",
+    "app/api/matches/[id]/start/route.ts",
+    "app/api/test/route.ts",
+
+    # app pages
+    "app/dashboard/page.tsx",
+    "app/home/layout.tsx",
+    "app/home/page.tsx",
+    "app/leaderboard/page.tsx",
+
+    # app matches pages
+    "app/matches/[id]/page.tsx",
+    "app/matches/[id]/edit/page.tsx",
+    "app/matches/[id]/live/page.tsx",
+    "app/matches/[id]/score/page.tsx",
+    "app/matches/[id]/scorecard/page.tsx",
+    "app/matches/create/page.tsx",
+
+    # app matches score components
+    "app/matches/[id]/score/components/BatsmanSelection.tsx",
+    "app/matches/[id]/score/components/BatsmanSelectionForm.tsx",
+    "app/matches/[id]/score/components/BowlerSelection.tsx",
+    "app/matches/[id]/score/components/CurrentOver.tsx",
+    "app/matches/[id]/score/components/CurrentPlayers.tsx",
+    "app/matches/[id]/score/components/ExtrasModal.tsx",
+    "app/matches/[id]/score/components/PlayerSelection.tsx",
+    "app/matches/[id]/score/components/PlayerSelectionForm.tsx",
+    "app/matches/[id]/score/components/ScoreDisplay.tsx",
+    "app/matches/[id]/score/components/ScoringControls.tsx",
+    "app/matches/[id]/score/components/ScoringInterface.tsx",
+    "app/matches/[id]/score/components/TossForm.tsx",
+    "app/matches/[id]/score/components/TossSection.tsx",
+
+    # components
+    "components/animations/ScrollAnimation.tsx",
+
+    "components/dashboard/Footer.tsx",
+    "components/dashboard/InvitedMatches.tsx",
+    "components/dashboard/JoinMatchModel.tsx",
+    "components/dashboard/MyMatches.tsx",
+    "components/dashboard/Navbar.tsx",
+    "components/dashboard/QuickActions.tsx",
+    "components/dashboard/WelcomeBanner.tsx",
+
+    "components/home/Header.tsx",
+    "components/home/LiveMatches.tsx",
+    "components/home/QuickActions.tsx",
+    "components/home/RecentActivity.tsx",
+    "components/home/StatsOverview.tsx",
+    "components/home/TeamPerformance.tsx",
+    "components/home/UpcomingMatches.tsx",
+
+    "components/Leaderboard/LeaderboardTabs.tsx",
+    "components/Leaderboard/TeamsLeaderboard.tsx",
+
+    "components/sections/AdminUserAccess.tsx",
+    "components/sections/CallToAction.tsx",
+    "components/sections/Features.tsx",
+    "components/sections/Footer.tsx",
+    "components/sections/Hero.tsx",
+    "components/sections/HowItWorks.tsx",
+    "components/sections/LiveMatchPreview.tsx",
+    "components/sections/ScoreCard.tsx",
+
+    "components/ui/AlertDialog.tsx",
+    "components/ui/badge.tsx",
+    "components/ui/button.tsx",
+    "components/ui/card.tsx",
+    "components/ui/tabs.tsx",
+    "components/ui/toaster.tsx",
+
+    # hooks
+    "hooks/useAuth.ts",
+    "hooks/useMatchScoring.ts",
+]
+
+def main():
+    OUT.write_text("", encoding="utf-8")  # clear
+    with OUT.open("a", encoding="utf-8", newline="\n") as out:
+        for rel in FILES:
+            p = ROOT / rel
+            if not p.exists() or not p.is_file():
+                print(f"[SKIP] Not found or not a file: {rel}")
+                continue
+            try:
+                content = p.read_text(encoding="utf-8", errors="replace")
+            except Exception as e:
+                content = f"[ERROR READING FILE: {e}]"
+            out.write(f"===== FILE: {rel} =====\n")
+            out.write(content)
+            out.write("\n\n")
+    print(f"Wrote: {OUT}")
+
+if __name__ == "__main__":
+    main()

@@ -1,214 +1,350 @@
+
+
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
 import Match from '@/models/Match';
+import mongoose from 'mongoose';
 
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
 
-    // Fetch all completed matches
-    const matches = await Match.find({ status: 'completed' }).lean();
+    // === 1. Batting Stats Aggregation ===
+    const battingStats = await Match.aggregate([
+      // Stage 1: Filter for completed matches only
+      { $match: { status: 'completed' } },
 
-    if (!matches || matches.length === 0) {
-      return NextResponse.json({
-        battingStats: [],
-        bowlingStats: []
-      });
-    }
+      // Stage 2: Deconstruct the team arrays to access players
+      { $unwind: '$teamOne.players' },
+      { $unwind: '$teamTwo.players' },
 
-    // Aggregate player statistics and team statistics
-    const playerStatsMap = new Map();
-    const teamStatsMap = new Map();
+      // Stage 3: Combine all players into a single stream
+      {
+        $project: {
+          _id: 0,
+          player: {
+            $mergeObjects: ['$teamOne.players', '$teamTwo.players'],
+          },
+        },
+      },
+      // This is a common pattern, but a bit complex. A simpler way:
+      // We can improve this, but let's stick to a readable version first.
+      // Let's refine Stage 2 & 3 to be more efficient.
 
-    matches.forEach((match: any) => {
-      const teams = [match.teamOne, match.teamTwo];
+      // --- A More Efficient Aggregation ---
+      // We'll restart the pipeline for clarity.
+    ]);
+
+    // === A BETTER PIPELINE ===
+    
+    // We need to process players from both teams.
+    // Let's combine them first.
+    
+    const allPlayers = await Match.aggregate([
+      // 1. Get only completed matches
+      { $match: { status: 'completed' } },
       
-      // Determine match winner for team stats
-      let winnerTeam = null;
-      let loserTeam = null;
+      // 2. Combine players from both teams into one array per match
+      {
+        $project: {
+          allPlayers: {
+            $concatArrays: ['$teamOne.players', '$teamTwo.players'],
+          },
+        },
+      },
       
-      if (match.result && match.result.winner) {
-        if (match.result.winner === 'team_one') {
-          winnerTeam = match.teamOne;
-          loserTeam = match.teamTwo;
-        } else if (match.result.winner === 'team_two') {
-          winnerTeam = match.teamTwo;
-          loserTeam = match.teamOne;
-        }
+      // 3. Deconstruct that new combined array
+      { $unwind: '$allPlayers' },
+      
+      // 4. Replace the root with just the player document
+      { $replaceRoot: { newRoot: '$allPlayers' } },
+      
+      // 5. Group by player name to aggregate stats
+      {
+        $group: {
+          _id: '$name', // Group by player name
+          matches: { $sum: 1 }, // Count matches played
+          totalRuns: { $sum: '$runs_scored' },
+          totalBalls: { $sum: '$balls_played' },
+          fours: { $sum: '$fours' },
+          sixes: { $sum: '$sixes' },
+          highScore: { $max: '$runs_scored' },
+          timesOut: {
+            $sum: { $cond: [{ $eq: ['$is_out', true] }, 1, 0] },
+          },
+          innings: {
+             $sum: { $cond: [{ $gt: ['$balls_played', 0] }, 1, 0] },
+          },
+        },
+      },
+      
+      // 6. Project to calculate final stats (Average, Strike Rate)
+      {
+        $project: {
+          _id: 0, // Exclude the default _id
+          name: '$_id', // Rename _id to name
+          matches: 1,
+          innings: 1,
+          runs: '$totalRuns',
+          fours: 1,
+          sixes: 1,
+          highScore: 1,
+          average: {
+            $cond: [
+              { $eq: ['$timesOut', 0] },
+              '$totalRuns', // Avoid division by zero
+              { $divide: ['$totalRuns', '$timesOut'] },
+            ],
+          },
+          strikeRate: {
+            $cond: [
+              { $eq: ['$totalBalls', 0] },
+              0, // Avoid division by zero
+              {
+                $multiply: [
+                  { $divide: ['$totalRuns', '$totalBalls'] },
+                  100,
+                ],
+              },
+            ],
+          },
+        },
+      },
+      
+      // 7. Sort by top runs
+      { $sort: { runs: -1 } },
+      
+      // 8. Limit to top 10
+      { $limit: 10 },
+      
+      // 9. Round the calculated fields
+      {
+         $project: {
+            name: 1,
+            matches: 1,
+            innings: 1,
+            runs: 1,
+            fours: 1,
+            sixes: 1,
+            highScore: 1,
+            average: { $round: ['$average', 2] },
+            strikeRate: { $round: ['$strikeRate', 2] },
+         }
       }
+    ]);
 
-      teams.forEach((team, index) => {
-        if (!team?.players) return;
+    // === 2. Bowling Stats Aggregation ===
+    const bowlingStats = await Match.aggregate([
+      // 1. Get only completed matches
+      { $match: { status: 'completed' } },
+      
+      // 2. Combine players from both teams
+      {
+        $project: {
+          allPlayers: {
+            $concatArrays: ['$teamOne.players', '$teamTwo.players'],
+          },
+        },
+      },
+      
+      // 3. Deconstruct the array
+      { $unwind: '$allPlayers' },
+      
+      // 4. Replace root with player
+      { $replaceRoot: { newRoot: '$allPlayers' } },
+
+      // 5. Filter for players who have actually bowled
+      { $match: { 'balls_bowled': { $gt: 0 } } },
+      
+      // 6. Group by player name
+      {
+        $group: {
+          _id: '$name',
+          matches: { $sum: 1 },
+          wickets: { $sum: '$wickets' },
+          runsConceded: { $sum: '$runs_conceded' },
+          ballsBowled: { $sum: '$balls_bowled' },
+          maidens: { $sum: '$maidens' },
+          dot_balls: { $sum: '$dot_balls' },
+          // Note: "bestBowling" is complex and may require a separate query or simplification
+        },
+      },
+      
+      // 7. Project to calculate final stats (Economy, Average)
+      {
+        $project: {
+          _id: 0,
+          name: '$_id',
+          matches: 1,
+          wickets: 1,
+          runs_conceded: '$runsConceded',
+          maidens: 1,
+          dot_balls: 1,
+          overs: {
+             $concat: [
+                { $toString: { $floor: { $divide: ['$ballsBowled', 6] } } },
+                '.',
+                { $toString: { $mod: ['$ballsBowled', 6] } }
+             ]
+          },
+          economy: {
+            $cond: [
+              { $eq: ['$ballsBowled', 0] },
+              0,
+              {
+                $multiply: [
+                  { $divide: ['$runsConceded', '$ballsBowled'] },
+                  6,
+                ],
+              },
+            ],
+          },
+          average: {
+            $cond: [
+              { $eq: ['$wickets', 0] },
+              0,
+              { $divide: ['$runsConceded', '$wickets'] },
+            ],
+          },
+          bestBowling: '$wickets', // Simplified: using total wickets as a proxy.
+        },
+      },
+      
+      // 8. Sort by most wickets
+      { $sort: { wickets: -1 } },
+      
+      // 9. Limit to top 10
+      { $limit: 10 },
+
+      // 10. Round the calculated fields
+      {
+         $project: {
+            name: 1,
+            matches: 1,
+            wickets: 1,
+            runs_conceded: 1,
+            maidens: 1,
+            dot_balls: 1,
+            overs: 1,
+            economy: { $round: ['$economy', 2] },
+            average: { $round: ['$average', 2] },
+            bestBowling: 1
+         }
+      }
+    ]);
+    
+    // === 3. Team Stats Aggregation ===
+    // (This one is more complex as each team appears once per match)
+    // We'll create a stream of 'team performances' first
+    
+    const teamStats = await Match.aggregate([
+        // 1. Get completed matches
+        { $match: { status: 'completed' } },
         
-        // Team Statistics
-        const teamName = team.name;
-        if (!teamStatsMap.has(teamName)) {
-          teamStatsMap.set(teamName, {
-            name: teamName,
-            matches: new Set(),
-            wins: 0,
-            losses: 0,
-            totalRuns: 0,
-            highestScore: 0,
-            totalWickets: 0,
-            matchScores: []
-          });
+        // 2. Project both teams into a single array
+        {
+            $project: {
+                teams: [
+                    {
+                        name: '$teamOne.name',
+                        score: '$teamOne.total_score',
+                        wickets: '$teamOne.total_wickets',
+                        // Determine winner
+                        isWinner: {
+                            $cond: [
+                                { $gt: ['$teamOne.total_score', '$teamTwo.total_score'] }, 1, 0
+                            ]
+                        }
+                    },
+                    {
+                        name: '$teamTwo.name',
+                        score: '$teamTwo.total_score',
+                        wickets: '$teamTwo.total_wickets',
+                        isWinner: {
+                            $cond: [
+                                { $gt: ['$teamTwo.total_score', '$teamOne.total_score'] }, 1, 0
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        
+        // 3. Unwind the teams array
+        { $unwind: '$teams' },
+        
+        // 4. Group by team name
+        {
+            $group: {
+                _id: '$teams.name',
+                matches: { $sum: 1 },
+                wins: { $sum: '$teams.isWinner' },
+                totalRuns: { $sum: '$teams.score' },
+                totalWickets: { $sum: '$teams.wickets' },
+                highestScore: { $max: '$teams.score' },
+            }
+        },
+
+        // 5. Project final calculated values
+        {
+            $project: {
+                _id: 0,
+                name: '$_id',
+                matches: 1,
+                wins: 1,
+                losses: { $subtract: ['$matches', '$wins'] }, // Simple loss calc
+                winRate: {
+                    $cond: [
+                         { $eq: ['$matches', 0] },
+                         0,
+                         { $multiply: [{ $divide: ['$wins', '$matches'] }, 100] }
+                    ]
+                },
+                totalRuns: 1,
+                totalWickets: 1,
+                highestScore: 1,
+                averageScore: {
+                    $cond: [
+                         { $eq: ['$matches', 0] },
+                         0,
+                         { $divide: ['$totalRuns', '$matches'] }
+                    ]
+                }
+            }
+        },
+        
+        // 6. Sort by wins, then win rate
+        { $sort: { wins: -1, winRate: -1 } },
+        
+        // 7. Limit to top 10
+        { $limit: 10 },
+        
+        // 8. Round calculated fields
+        {
+            $project: {
+                name: 1,
+                matches: 1,
+                wins: 1,
+                losses: 1,
+                totalRuns: 1,
+                totalWickets: 1,
+                highestScore: 1,
+                winRate: { $round: ['$winRate', 0] },
+                averageScore: { $round: ['$averageScore', 0] }
+            }
         }
+    ]);
 
-        const teamStats = teamStatsMap.get(teamName);
-        teamStats.matches.add(match._id.toString());
-        
-        if (winnerTeam && winnerTeam.name === teamName) {
-          teamStats.wins += 1;
-        } else if (loserTeam && loserTeam.name === teamName) {
-          teamStats.losses += 1;
-        }
-        
-        const teamScore = team.total_score || 0;
-        teamStats.totalRuns += teamScore;
-        teamStats.highestScore = Math.max(teamStats.highestScore, teamScore);
-        teamStats.totalWickets += team.total_wickets || 0;
-        teamStats.matchScores.push(teamScore);
-
-        // Player Statistics
-        team.players.forEach((player: any) => {
-          const playerName = player.name;
-
-          if (!playerStatsMap.has(playerName)) {
-            playerStatsMap.set(playerName, {
-              name: playerName,
-              matches: new Set(),
-              totalRuns: 0,
-              totalBalls: 0,
-              timesOut: 0,
-              fours: 0,
-              sixes: 0,
-              wickets: 0,
-              highScore: 0,
-              ballsBowled: 0,
-              runsConceded: 0,
-              innings: 0,
-            });
-          }
-
-          const stats = playerStatsMap.get(playerName);
-
-          // Add match ID to set (for unique match count)
-          stats.matches.add(match._id.toString());
-
-          // Batting stats
-          if (player.balls_played > 0) {
-            stats.innings += 1;
-          }
-          stats.totalRuns += player.runs_scored || 0;
-          stats.totalBalls += player.balls_played || 0;
-          stats.timesOut += player.is_out ? 1 : 0;
-          stats.fours += player.fours || 0;
-          stats.sixes += player.sixes || 0;
-          stats.highScore = Math.max(stats.highScore, player.runs_scored || 0);
-
-          // Bowling stats
-          stats.wickets += player.wickets || 0;
-        });
-      });
-    });
-
-    // Calculate batting leaderboard
-
-    const battingStats = Array.from(playerStatsMap.values())
-      .filter((stats) => stats.totalBalls > 0) // Only players who have batted
-      .map((stats) => {
-        const average = stats.timesOut > 0
-          ? (stats.totalRuns / stats.timesOut).toFixed(2)
-          : stats.totalRuns.toFixed(2);
-
-        const strikeRate = stats.totalBalls > 0
-          ? ((stats.totalRuns / stats.totalBalls) * 100).toFixed(2)
-          : '0.00';
-
-        return {
-          name: stats.name,
-          matches: stats.matches.size,
-          innings: stats.innings,
-          runs: stats.totalRuns,
-          average: parseFloat(average),
-          strikeRate: parseFloat(strikeRate),
-          fours: stats.fours,
-          sixes: stats.sixes,
-          highScore: stats.highScore,
-        };
-      })
-      .sort((a, b) => b.runs - a.runs)
-      .slice(0, 10);
-
-    // Calculate bowling stats
-    const bowlingStats = Array.from(playerStatsMap.values())
-      .filter((stats) => stats.wickets > 0 || stats.balls_bowled > 0)
-      .map((stats) => {
-        const overs = stats.balls_bowled > 0
-          ? Math.floor(stats.balls_bowled / 6) + (stats.balls_bowled % 6) / 10
-          : 0
-
-        const economy = stats.balls_bowled > 0
-          ? ((stats.runs_conceded / stats.balls_bowled) * 6).toFixed(2)
-          : '0.00'
-
-        const average = stats.wickets > 0
-          ? (stats.runs_conceded / stats.wickets).toFixed(2)
-          : '0.00'
-
-        return {
-          name: stats.name,
-          matches: stats.matches.size,
-          wickets: stats.wickets,
-          overs: overs.toFixed(1),
-          runs_conceded: stats.runs_conceded,
-          economy: parseFloat(economy),
-          average: parseFloat(average),
-          maidens: stats.maidens,
-          dot_balls: stats.dot_balls,
-          bestBowling: stats.wickets,
-        };
-      })
-      .sort((a, b) => b.wickets - a.wickets)
-      .slice(0, 10);
-
-    // Calculate team leaderboard
-    const teamStats = Array.from(teamStatsMap.values())
-      .map((stats) => {
-        const matches = stats.matches.size;
-        const winRate = matches > 0 ? Math.round((stats.wins / matches) * 100) : 0;
-        const averageScore = stats.matchScores.length > 0 
-          ? Math.round(stats.totalRuns / stats.matchScores.length) 
-          : 0;
-
-        return {
-          name: stats.name,
-          matches: matches,
-          wins: stats.wins,
-          losses: stats.losses,
-          winRate: winRate,
-          totalRuns: stats.totalRuns,
-          averageScore: averageScore,
-          highestScore: stats.highestScore,
-          totalWickets: stats.totalWickets,
-        };
-      })
-      .sort((a, b) => {
-        // Sort by win rate first, then by wins
-        if (b.winRate !== a.winRate) return b.winRate - a.winRate;
-        return b.wins - a.wins;
-      })
-      .slice(0, 10);
-
+    // Count total matches separately (more efficient)
+    const totalMatches = await Match.countDocuments({ status: 'completed' });
 
     return NextResponse.json({
       battingStats,
       bowlingStats,
       teamStats,
-      totalMatches: matches.length
+      totalMatches,
     });
-
   } catch (error: any) {
     console.error('Leaderboard API Error:', error);
     return NextResponse.json(
