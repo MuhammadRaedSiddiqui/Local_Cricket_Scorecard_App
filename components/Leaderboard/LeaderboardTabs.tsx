@@ -80,18 +80,17 @@ export default function LeaderboardTabs({
             tab === 'batting'
               ? 'blue'
               : tab === 'bowling'
-              ? 'green'
-              : 'purple';
+                ? 'green'
+                : 'purple';
 
           return (
             <button
               key={tab}
               onClick={() => setActiveTab(tab as 'batting' | 'bowling' | 'teams')}
-              className={`relative px-6 py-3 font-semibold transition-all duration-300 ${
-                activeTab === tab
+              className={`relative px-6 py-3 font-semibold transition-all duration-300 ${activeTab === tab
                   ? `text-${colors}-600`
                   : 'text-gray-500 hover:text-gray-700'
-              }`}
+                }`}
             >
               <span className="flex items-center gap-2">
                 {tab === 'batting' && '🏏 Batting Leaders'}
@@ -181,25 +180,27 @@ function BattingLeaderboard({ stats }: { stats: BattingStats[] }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {stats.map((player, index) => (
-              <motion.tr
-                key={player.name}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="hover:bg-blue-50 transition-colors duration-150"
-              >
-                <td className="px-6 py-4 text-center">{index + 1}</td>
-                <td className="px-6 py-4 font-semibold">{player.name}</td>
-                <td className="px-6 py-4 text-center">{player.matches}</td>
-                <td className="px-6 py-4 text-center text-blue-600 font-bold">{player.runs}</td>
-                <td className="px-6 py-4 text-center">{player.average}</td>
-                <td className="px-6 py-4 text-center">{player.strikeRate}</td>
-                <td className="px-6 py-4 text-center">{player.fours}</td>
-                <td className="px-6 py-4 text-center">{player.sixes}</td>
-                <td className="px-6 py-4 text-center">{player.highScore}</td>
-              </motion.tr>
-            ))}
+            {stats.map((playerObj, index) => {
+              const p = playerObj.player; // nested data
+              return (
+                <motion.tr key={p._id || p.name}>
+                  <td className="px-6 py-4 text-center">{index + 1}</td>
+                  <td className="px-6 py-4 font-semibold">{p.name}</td>
+                  <td className="px-6 py-4 text-center">1</td>
+                  <td className="px-6 py-4 text-center text-blue-600 font-bold">{p.runs_scored}</td>
+                  <td className="px-6 py-4 text-center">
+                    {p.balls_played ? (p.runs_scored / p.balls_played).toFixed(2) : 0}
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    {p.balls_played ? ((p.runs_scored / p.balls_played) * 100).toFixed(2) : 0}
+                  </td>
+                  <td className="px-6 py-4 text-center">{p.fours}</td>
+                  <td className="px-6 py-4 text-center">{p.sixes}</td>
+                  <td className="px-6 py-4 text-center">{p.runs_scored}</td>
+                </motion.tr>
+              );
+            })}
+
           </tbody>
         </table>
       </div>
