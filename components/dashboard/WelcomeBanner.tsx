@@ -3,13 +3,20 @@
 import { motion } from 'framer-motion'
 import { Sparkles, TrendingUp } from 'lucide-react'
 
-export default function WelcomeBanner() {
-  const userName = "Ahmed"
-  const stats = {
-    totalMatches: 24,
-    liveMatches: 2,
-    friendsPlaying: 8
-  }
+interface WelcomeBannerProps {
+  userName: string;
+  totalMatches: number;
+  liveMatches: number;
+  friendsPlaying: number; // We'll keep this even if it's 0 for now
+}
+
+export default function WelcomeBanner({
+  userName,
+  totalMatches,
+  liveMatches,
+  friendsPlaying
+}: WelcomeBannerProps) {
+
 
   return (
     <motion.section
@@ -21,11 +28,11 @@ export default function WelcomeBanner() {
       <div className="bg-gradient-to-r from-green-500/10 via-emerald-500/10 to-teal-500/10 rounded-3xl p-6 sm:p-8 border border-green-200/50 relative overflow-hidden">
         {/* Background decoration */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-green-300/20 to-emerald-300/20 rounded-full blur-3xl -mr-32 -mt-32"></div>
-        
+
         <div className="relative">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <motion.h1 
+              <motion.h1
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.2 }}
@@ -33,7 +40,7 @@ export default function WelcomeBanner() {
               >
                 Welcome back, {userName}! 👋
               </motion.h1>
-              <motion.p 
+              <motion.p
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.3 }}
@@ -55,14 +62,14 @@ export default function WelcomeBanner() {
           </div>
 
           {/* Quick Stats */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
             className="grid grid-cols-3 gap-4 mt-6"
           >
             <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-3 sm:p-4 text-center">
-              <p className="text-2xl sm:text-3xl font-bold text-gray-900">{stats.totalMatches}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900">{totalMatches}</p>
               <p className="text-xs sm:text-sm text-gray-600">Total Matches</p>
             </div>
             <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-3 sm:p-4 text-center relative">
@@ -72,11 +79,11 @@ export default function WelcomeBanner() {
                   <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
                 </span>
               </div>
-              <p className="text-2xl sm:text-3xl font-bold text-green-600">{stats.liveMatches}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-green-600">{liveMatches}</p>
               <p className="text-xs sm:text-sm text-gray-600">Live Now</p>
             </div>
             <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-3 sm:p-4 text-center">
-              <p className="text-2xl sm:text-3xl font-bold text-gray-900">{stats.friendsPlaying}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900">{friendsPlaying}</p>
               <p className="text-xs sm:text-sm text-gray-600">Friends Playing</p>
             </div>
           </motion.div>

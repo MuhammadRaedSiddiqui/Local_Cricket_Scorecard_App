@@ -242,7 +242,7 @@ export default function ScorecardPage() {
             transition={{ delay: 0.1 }}
           >
             <ScoreCard
-              match={match} isLive={true} viewersCount={1500} />
+              match={match} />
           </motion.div>
 
           {/* Match Code Share Section */}

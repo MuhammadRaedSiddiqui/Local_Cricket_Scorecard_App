@@ -66,6 +66,13 @@ class ApiClient {
     return this.request('/matches');
   }
 
+  async joinMatch(matchCode: string) {
+    return this.request('/matches/join', {
+      method: 'POST',
+      body: JSON.stringify({ matchCode }),
+    });
+  }
+
   logout() {
     this.token = null;
     localStorage.removeItem('auth_token');

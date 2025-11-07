@@ -1,11 +1,26 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react' // 1. Add useEffect
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Calendar, MapPin, Eye, Play, CheckCircle, Clock, Users, RefreshCw } from 'lucide-react'
+// 2. Add MoreVertical and Trash2
+import { Calendar, MapPin, Eye, Play, CheckCircle, Clock, Users, RefreshCw, MoreVertical, Trash2 } from 'lucide-react'
+import toast from 'react-hot-toast'; // 3. Import toast
+// 4. Import the AlertDialog components
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@/components/ui/AlertDialog'
+
+
 
 interface MatchData {
   _id: string;
@@ -40,14 +55,27 @@ interface InvitedMatchesProps {
 export default function InvitedMatches({ matches = [], loading, onRefresh }: InvitedMatchesProps) {
   const router = useRouter()
   const [filter, setFilter] = useState<'all' | 'live' | 'upcoming' | 'completed'>('all')
-  
+
+
+  // --- 5. ADD STATE FOR DIALOG AND MENU ---
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
+  const [matchToLeave, setMatchToLeave] = useState<MatchData | null>(null)
+  const [leaving, setLeaving] = useState(false)
+  const [showMenu, setShowMenu] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (leaveDialogOpen) {
+      setShowMenu(null)
+    }
+  }, [leaveDialogOpen])
+
   // Safe filtering with default empty array
-  const filteredMatches = filter === 'all' 
+  const filteredMatches = filter === 'all'
     ? (matches || [])
     : (matches || []).filter(match => match.status === filter)
 
   const getStatusIcon = (status: string) => {
-    switch(status) {
+    switch (status) {
       case 'live':
         return <Play className="h-4 w-4" />
       case 'upcoming':
@@ -60,7 +88,7 @@ export default function InvitedMatches({ matches = [], loading, onRefresh }: Inv
   }
 
   const getStatusColor = (status: string) => {
-    switch(status) {
+    switch (status) {
       case 'live':
         return 'bg-red-100 text-red-700 border-red-200'
       case 'upcoming':
@@ -87,20 +115,59 @@ export default function InvitedMatches({ matches = [], loading, onRefresh }: Inv
     } else if (date.toDateString() === yesterday.toDateString()) {
       return 'Yesterday'
     }
-    
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
+
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
       day: 'numeric'
     })
   }
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString)
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
       minute: '2-digit'
     })
   }
+
+  const handleLeaveClick = (match: MatchData, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setMatchToLeave(match);
+    setLeaveDialogOpen(true);
+    setShowMenu(null);
+  }
+
+  const handleLeaveConfirm = async () => {
+    if (!matchToLeave) return;
+
+    setLeaving(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`/api/matches/${matchToLeave._id}/leave`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success(data.message || 'You have left the match');
+        setLeaveDialogOpen(false);
+        setMatchToLeave(null);
+        onRefresh(); // Refresh the list!
+      } else {
+        throw new Error(data.error || 'Failed to leave match');
+      }
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setLeaving(false);
+    }
+  }
+
 
   if (loading) {
     return (
@@ -123,162 +190,241 @@ export default function InvitedMatches({ matches = [], loading, onRefresh }: Inv
   }
 
   return (
-    <section className="mb-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h2 className="text-xl font-bold text-gray-900">Invited Matches</h2>
-          <p className="text-sm text-gray-500">Matches where you're a participant</p>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          {/* Filter Tabs */}
-          <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-xl">
-            {(['all', 'live', 'upcoming', 'completed'] as const).map((status) => (
-              <button
-                key={status}
-                onClick={() => setFilter(status)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium capitalize transition-all ${
-                  filter === status 
-                    ? 'bg-white text-gray-900 shadow-sm' 
+    <>
+      <section className="mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Invited Matches</h2>
+            <p className="text-sm text-gray-500">Matches where you're a participant</p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Filter Tabs */}
+            <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-xl">
+              {(['all', 'live', 'upcoming', 'completed'] as const).map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setFilter(status)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium capitalize transition-all ${filter === status
+                    ? 'bg-white text-gray-900 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                {status}
-              </button>
-            ))}
-          </div>
-          
-          {/* Refresh Button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onRefresh}
-            className="gap-2"
-          >
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      {filteredMatches.length === 0 ? (
-        <Card className="p-12 text-center">
-          <div className="max-w-md mx-auto">
-            <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
-              <Users className="h-8 w-8 text-gray-400" />
+                    }`}
+                >
+                  {status}
+                </button>
+              ))}
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {filter === 'all' ? 'No invited matches' : `No ${filter} matches`}
-            </h3>
-            <p className="text-gray-500">
-              {filter === 'all' 
-                ? "You haven't been invited to any matches yet." 
-                : `You don't have any ${filter} invited matches.`}
-            </p>
-          </div>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredMatches.map((match, index) => (
-            <motion.div
-              key={match._id}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.1 }}
-              whileHover={{ y: -4 }}
+
+            {/* Refresh Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRefresh}
+              className="gap-2"
             >
-              <Card className="p-5 hover:shadow-lg transition-all bg-white/80 backdrop-blur-sm border-gray-100">
-                {/* Status Badge */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(match.status)}`}>
-                    {getStatusIcon(match.status)}
-                    <span className="capitalize">{match.status}</span>
-                    {match.status === 'live' && (
-                      <span className="ml-1 relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                      </span>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {filteredMatches.length === 0 ? (
+          <Card className="p-12 text-center">
+            <div className="max-w-md mx-auto">
+              <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                <Users className="h-8 w-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {filter === 'all' ? 'No invited matches' : `No ${filter} matches`}
+              </h3>
+              <p className="text-gray-500">
+                {filter === 'all'
+                  ? "You haven't been invited to any matches yet."
+                  : `You don't have any ${filter} invited matches.`}
+              </p>
+            </div>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredMatches.map((match, index) => (
+              <motion.div
+                key={match._id}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: index * 0.1 }}
+                whileHover={{ y: -4 }}
+              >
+                <Card className="p-5 hover:shadow-lg transition-all bg-white/80 backdrop-blur-sm border-gray-100">
+
+                  {/* --- 7. ADD MENU BUTTON AND DROPDOWN --- */}
+                  <div className="absolute top-3 right-3">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowMenu(showMenu === match._id ? null : match._id);
+                      }}
+                      className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      <MoreVertical className="h-4 w-4 text-gray-500" />
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    {showMenu === match._id && (
+                      <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+                        <button
+                          onClick={() => router.push(`/matches/${match._id}`)}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <Eye className="h-4 w-4" />
+                          View Details
+                        </button>
+                        <hr className="my-1" />
+                        <button
+                          onClick={(e) => handleLeaveClick(match, e)}
+                          className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Leave Match
+                        </button>
+                      </div>
                     )}
                   </div>
-                  <span className="text-xs font-mono text-gray-500">
-                    {match.matchCode}
-                  </span>
-                </div>
+                  {/* --- END OF ADDED MENU --- */}
 
-                {/* Teams */}
-                <div className="space-y-3 mb-4">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-gray-900">{match.teamOne.name}</h3>
-                      {match.status !== 'upcoming' && (
-                        <span className="text-sm font-medium text-gray-700">
-                          {match.teamOne.total_score || 0}/{match.teamOne.total_wickets || 0}
+
+                  {/* Status Badge */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(match.status)}`}>
+                      {getStatusIcon(match.status)}
+                      <span className="capitalize">{match.status}</span>
+                      {match.status === 'live' && (
+                        <span className="ml-1 relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
                         </span>
                       )}
                     </div>
-                    {match.status !== 'upcoming' && (
-                      <div className="text-xs text-gray-500 text-right">
-                        ({match.teamOne.overs} ov)
-                      </div>
-                    )}
-                    
-                    <div className="text-center text-xs text-gray-400 my-1">vs</div>
-                    
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-gray-900">{match.teamTwo.name}</h3>
-                      {match.status !== 'upcoming' && (
-                        <span className="text-sm font-medium text-gray-700">
-                          {match.teamTwo.total_score || 0}/{match.teamTwo.total_wickets || 0}
-                        </span>
-                      )}
-                    </div>
-                    {match.status !== 'upcoming' && (
-                      <div className="text-xs text-gray-500 text-right">
-                        ({match.teamTwo.overs} ov)
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Target Display */}
-                {match.target && (
-                  <div className="mb-4 p-2 bg-blue-50 rounded-lg text-center">
-                    <span className="text-xs font-medium text-blue-700">
-                      Target: {match.target}
+                    <span className="text-xs font-mono text-gray-500">
+                      {match.matchCode}
                     </span>
                   </div>
-                )}
 
-                {/* Match Details */}
-                <div className="space-y-2 mb-4 text-sm text-gray-600">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-3.5 w-3.5" />
-                    <span>{formatDate(match.startTime)} • {formatTime(match.startTime)}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-3.5 w-3.5" />
-                    <span className="truncate">{match.venue}</span>
-                  </div>
-                </div>
+                  {/* Teams */}
+                  <div className="space-y-3 mb-4">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-gray-900">{match.teamOne.name}</h3>
+                        {match.status !== 'upcoming' && (
+                          <span className="text-sm font-medium text-gray-700">
+                            {match.teamOne.total_score || 0}/{match.teamOne.total_wickets || 0}
+                          </span>
+                        )}
+                      </div>
+                      {match.status !== 'upcoming' && (
+                        <div className="text-xs text-gray-500 text-right">
+                          ({match.teamOne.overs} ov)
+                        </div>
+                      )}
 
-                {/* Actions */}
-                <div className="flex gap-2">
-                  <Button 
-                    variant="secondary" 
-                    className="flex-1"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      router.push(`/matches/${match._id}`)
-                    }}
-                  >
-                    <Eye className="h-4 w-4 mr-1.5" />
-                    View Match
-                  </Button>
-                </div>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
-      )}
-    </section>
+                      <div className="text-center text-xs text-gray-400 my-1">vs</div>
+
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-gray-900">{match.teamTwo.name}</h3>
+                        {match.status !== 'upcoming' && (
+                          <span className="text-sm font-medium text-gray-700">
+                            {match.teamTwo.total_score || 0}/{match.teamTwo.total_wickets || 0}
+                          </span>
+                        )}
+                      </div>
+                      {match.status !== 'upcoming' && (
+                        <div className="text-xs text-gray-500 text-right">
+                          ({match.teamTwo.overs} ov)
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Target Display */}
+                  {match.target && (
+                    <div className="mb-4 p-2 bg-blue-50 rounded-lg text-center">
+                      <span className="text-xs font-medium text-blue-700">
+                        Target: {match.target}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Match Details */}
+                  <div className="space-y-2 mb-4 text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-3.5 w-3.5" />
+                      <span>{formatDate(match.startTime)} • {formatTime(match.startTime)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-3.5 w-3.5" />
+                      <span className="truncate">{match.venue}</span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      className="flex-1"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        router.push(`/matches/${match._id}`)
+                      }}
+                    >
+                      <Eye className="h-4 w-4 mr-1.5" />
+                      View Match
+                    </Button>
+                  </div>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <AlertDialog
+        open={leaveDialogOpen}
+        onOpenChange={(open) => {
+          setLeaveDialogOpen(open);
+          if (!open) {
+            setMatchToLeave(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave Match?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to leave <strong>{matchToLeave?.matchCode}</strong>?
+              <br />
+              <span className="text-gray-900 font-medium">
+                {matchToLeave?.teamOne.name} vs {matchToLeave?.teamTwo.name}
+              </span>
+              <br /><br />
+              You will lose access to this match unless you are invited again or re-join.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setLeaveDialogOpen(false);
+              setMatchToLeave(null);
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleLeaveConfirm}
+              variant="destructive"
+              disabled={leaving}
+            >
+              {leaving ? 'Leaving...' : 'Leave Match'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+    </>
   )
 }

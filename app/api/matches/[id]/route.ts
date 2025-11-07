@@ -49,24 +49,24 @@ export async function GET(request: NextRequest, { params }: Params) {
       is_out: p.is_out,
     }))
 
-    console.log('📥 [GET] Fetched match from DB:', {
-      id: match._id,
-      tossWinner: match.toss_winner,
-      battingTeam: match.batting_team,
-      scoringState: match.scoringState,
-      teamOne: {
-        name: match.teamOne?.name,
-        total_score: match.teamOne?.total_score,
-        players_count: match.teamOne?.players?.length || 0,
-        player_stats: teamOnePlayerStats,
-      },
-      teamTwo: {
-        name: match.teamTwo?.name,
-        total_score: match.teamTwo?.total_score,
-        players_count: match.teamTwo?.players?.length || 0,
-        player_stats: teamTwoPlayerStats,
-      },
-    })
+    // console.log('📥 [GET] Fetched match from DB:', {
+    //   id: match._id,
+    //   tossWinner: match.toss_winner,
+    //   battingTeam: match.batting_team,
+    //   scoringState: match.scoringState,
+    //   teamOne: {
+    //     name: match.teamOne?.name,
+    //     total_score: match.teamOne?.total_score,
+    //     players_count: match.teamOne?.players?.length || 0,
+    //     player_stats: teamOnePlayerStats,
+    //   },
+    //   teamTwo: {
+    //     name: match.teamTwo?.name,
+    //     total_score: match.teamTwo?.total_score,
+    //     players_count: match.teamTwo?.players?.length || 0,
+    //     player_stats: teamTwoPlayerStats,
+    //   },
+    // })
 
     // ✅ Ensure player arrays are properly included in response
     // Convert to plain object to ensure proper JSON serialization

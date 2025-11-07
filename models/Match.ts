@@ -36,6 +36,7 @@ export interface ITeam {
 export interface IBall {
   ballNumber: number
   overNumber: number
+  innings: number
   batsman: string
   bowler: string
   runs: number
@@ -54,6 +55,7 @@ export interface IScoringState {
   outBatsmen: string[]
   currentInnings: number
   extraRuns: number
+  previousBowler:string
 }
 
 export interface IMatch extends Document {
@@ -112,6 +114,7 @@ const ballSchema = new mongoose.Schema(
   {
     ballNumber: { type: Number, required: true },
     overNumber: { type: Number, required: true },
+    innings: { type: Number, required: true },
     batsman: { type: String, required: true },
     bowler: { type: String, required: true },
     runs: { type: Number, required: true },

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
 import Match from '@/models/Match'
 import { verifyToken } from '@/lib/auth'
+import { pusherServer } from '@/lib/pusher';
 
 interface Params {
   params: { id: string }
@@ -247,6 +248,52 @@ export async function POST(request: NextRequest, { params }: Params) {
         { status: 500 }
       )
     }
+
+
+
+    try {
+      const allParticipantIds = new Set([
+        updatedMatch.createdBy.toString(),
+        ...updatedMatch.admins.map(id => id.toString()),
+        ...updatedMatch.scorers.map(id => id.toString()),
+        ...updatedMatch.viewers.map(id => id.toString()),
+      ]);
+
+      // --- THIS IS THE NEW, RICHER PAYLOAD ---
+      // We are now sending the complete score details for both teams.
+      const payload = {
+        matchId: updatedMatch._id.toString(),
+        status: updatedMatch.status,
+        teamOne: {
+          total_score: updatedMatch.teamOne.total_score,
+          total_wickets: updatedMatch.teamOne.total_wickets,
+          total_balls: updatedMatch.teamOne.total_balls, // Send total balls
+        },
+        teamTwo: {
+          total_score: updatedMatch.teamTwo.total_score,
+          total_wickets: updatedMatch.teamTwo.total_wickets,
+          total_balls: updatedMatch.teamTwo.total_balls, // Send total balls
+        }
+      };
+      // --- END OF NEW PAYLOAD ---
+
+      const triggers = Array.from(allParticipantIds).map(userId => {
+        const channelName = `private-user-${userId}`;
+        const eventName = 'match-updated';
+        
+        console.log(`[Pusher] Triggering event '${eventName}' on channel '${channelName}'`);
+        
+        // Send the new, richer payload
+        return pusherServer.trigger(channelName, eventName, payload);
+      });
+      
+      await Promise.allSettled(triggers); // Use allSettled
+      console.log(`[Pusher] Successfully triggered events for ${allParticipantIds.size} users.`);
+
+    } catch (pusherError) {
+      console.error('Failed to trigger Pusher event:', pusherError);
+    }
+
 
     // ✅ CRITICAL: Verify player stats were actually saved
     const verifyTeamOnePlayers = (updatedMatch.teamOne?.players || []).map((p: any) => ({

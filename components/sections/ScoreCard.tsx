@@ -3,40 +3,14 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Clock, Users, TrendingUp } from 'lucide-react'
+import { Team, Player, Ball } from '@/types/match' // Import Ball type
 
-interface Player {
-  name: string
-  runs_scored?: number
-  balls_played?: number
-  fours?: number
-  sixes?: number
-  wickets?: number
-  balls_bowled?: number
-  dots?: number
-  runs_conceded?: number
-  maidens?: number
-  is_captain?: boolean
-  is_keeper?: boolean
-  is_out?: boolean
-  dismissal?: string
-  strike_rate?: number
-  economy?: number
-}
-
-interface Team {
-  name: string
-  players: Player[]
-  total_score?: number
-  total_wickets?: number
-  total_balls?: number
-  extras?: number
-}
-
+// 1. UPDATED INTERFACE TO MATCH REAL DATA
 interface ScoreCardProps {
   match?: {
     _id?: string
     matchCode?: string
-    status?: string
+    status?: 'upcoming' | 'live' | 'completed'
     venue?: string
     overs?: number
     startTime?: string
@@ -48,14 +22,40 @@ interface ScoreCardProps {
     target?: number
     toss_winner?: string
     toss_decision?: string
+    ballHistory?: Ball[] // Added ballHistory
+    viewers?: string[] // Added viewers array
   }
-  isLive?: boolean
-  viewersCount?: number
+  viewersCount?: number // This prop is now redundant, but we'll keep it for previews
 }
 
-export default function ScoreCard({ match, isLive = false, viewersCount = 2300 }: ScoreCardProps) {
+// 2. NEW HELPER FUNCTION
+// Extracts the most recent over from ballHistory (keeps wides/no-balls so timeline isn't empty)
+const getThisOver = (ballHistory: Ball[] = [], currentInnings: number = 1): string[] => {
+  if (!ballHistory || ballHistory.length === 0) return [];
+
+  // Find the last ball *of the current inning*
+  const ballsThisInning = ballHistory.filter(ball => ball.innings === currentInnings);
+  if (ballsThisInning.length === 0) return []; // No balls for this inning yet
+
+  const lastBall = ballsThisInning[ballsThisInning.length - 1];
+  if (!lastBall) return [];
+
+  const currentOverNumber = lastBall.overNumber;
+
+  // Filter for balls in that *specific inning* and *specific over*
+  return ballsThisInning
+    .filter(ball => ball.overNumber === currentOverNumber)
+    .map(ball => ball.outcome); // Get just the outcome string
+}
+export default function ScoreCard({ match, viewersCount }: ScoreCardProps) {
   const [activeTeam, setActiveTeam] = useState<'teamOne' | 'teamTwo'>('teamOne')
   console.log(match)
+
+  // 3. GET REAL DATA OR FALLBACK TO DEMO DATA
+  const hasRealData = !!match?._id
+  const isLive = match?.status === 'live'
+  // Use real viewers length if available, otherwise use prop, finally fallback to default
+  const realViewersCount = match?.viewers ? match.viewers.length : (viewersCount || 0)
 
   // Default static data for preview/demo
   const defaultTeams = {
@@ -106,32 +106,29 @@ export default function ScoreCard({ match, isLive = false, viewersCount = 2300 }
     }
   }
 
-  // Use real match data if provided, otherwise use default data
-  const hasRealData = match && match.teamOne && match.teamTwo
-  
-  // Transform real match data to display format
-  const getTeamData = (team: Team | undefined, teamName: string) => {
-    if (!team) return defaultTeams[activeTeam === 'teamOne' ? 'teamOne' : 'teamTwo']
-    
+  // --- (getTeamData function remains the same as your original) ---
+  const getTeamData = (team: Team | undefined) => {
+    if (!team) return defaultTeams.teamOne // Fallback
+
     const batting = team.players.map(player => ({
       name: player.name + (player.is_captain ? ' (C)' : '') + (player.is_keeper ? ' (WK)' : ''),
       runs: player.runs_scored || 0,
       balls: player.balls_played || 0,
       fours: player.fours || 0,
       sixes: player.sixes || 0,
-      strikeRate: player.balls_played ? ((player.runs_scored || 0) / player.balls_played * 100) : 0,
-      status: player.dismissal || (player.is_out ? 'out' : player.balls_played && player.balls_played > 0 ? 'not out' : 'yet to bat')
+      strikeRate: player.balls_played ? ((player.runs_scored || 0) / player.balls_played) * 100 : 0,
+      status: (player as any).dismissal || (player.is_out ? 'out' : (player.balls_played || 0) > 0 ? 'not out' : 'yet to bat')
     }))
 
     const bowling = team.players
-      .filter(p => p.balls_bowled && p.balls_bowled > 0)
+      .filter(p => (p.balls_bowled || 0) > 0)
       .map(player => ({
         name: player.name,
         overs: player.balls_bowled ? `${Math.floor(player.balls_bowled / 6)}.${player.balls_bowled % 6}` : '0.0',
         maidens: player.maidens || 0,
         runs: player.runs_conceded || 0,
         wickets: player.wickets || 0,
-        economy: player.balls_bowled ? (player.runs_conceded || 0) / player.balls_bowled : 0
+        economy: player.balls_bowled ? ((player.runs_conceded || 0) * 6) / player.balls_bowled : 0 // Corrected economy
       }))
 
     const yetToBat = team.players
@@ -149,53 +146,91 @@ export default function ScoreCard({ match, isLive = false, viewersCount = 2300 }
       totalOvers: team.total_balls ? `${Math.floor(team.total_balls / 6)}.${team.total_balls % 6}` : '0.0'
     }
   }
+  // --- (End of getTeamData) ---
 
-  // Get display data
-  const team1Data = hasRealData ? getTeamData(match.teamOne, 'teamOne') : defaultTeams.teamOne
-  const team2Data = hasRealData ? getTeamData(match.teamTwo, 'teamTwo') : defaultTeams.teamTwo
+  // --- 4. USE REAL DATA ---
+  const team1Data = hasRealData ? getTeamData(match!.teamOne) : defaultTeams.teamOne
+  const team2Data = hasRealData ? getTeamData(match!.teamTwo) : defaultTeams.teamTwo
+
+  // Fix: team-specific innings label so both cards don’t show "2"
+  const teamInningsLabel = (teamName?: string) => {
+    if (!hasRealData) return 'Innings 1 of 1'
+    if (!teamName) return `Innings ${match?.currentInnings ?? 1}`
+    if ((match?.currentInnings ?? 1) === 2) {
+      return `Innings ${teamName === match?.batting_team ? 2 : 1}`
+    }
+    return 'Innings 1'
+  }
+
   const activeTeamData = activeTeam === 'teamOne' ? team1Data : team2Data
   const opponentTeamData = activeTeam === 'teamOne' ? team2Data : team1Data
+
+  // 5. IDENTIFY BATTING/BOWLING TEAMS from match prop
+  const currentBattingTeamData = match?.batting_team === match?.teamOne?.name ? team1Data : team2Data
+  const currentBowlingTeamData = match?.bowling_team === match?.teamOne?.name ? team1Data : team2Data
+
+  // Find current players from the actual batting team
+  const currentBatsmen = hasRealData
+    ? currentBattingTeamData.batting.filter(b => b.status === 'not out').slice(0, 2)
+    : defaultTeams.teamOne.batting.filter((b: any) => b.current)
+
+  // Find current bowler from the actual bowling team
+  const currentBowler = hasRealData
+    ? [...currentBowlingTeamData.bowling].sort((a, b) => String(b.overs).localeCompare(String(a.overs)))[0] // Simplistic: bowler with most overs
+    : defaultTeams.teamTwo.bowling[0]
 
   // Calculate match status
   const getMatchStatus = () => {
     if (!hasRealData) {
       return "Valley Vikings need 63 runs in 20 balls"
     }
-    
-    if (match.status === 'live' && match.currentInnings === 2 && match.target) {
-      const battingTeam = match.batting_team === match.teamOne?.name ? match.teamOne : match.teamTwo
-      const runsNeeded = match.target - (battingTeam?.total_score || 0)
-      const ballsRemaining = (match.overs! * 6) - (battingTeam?.total_balls || 0)
-      
+
+    if (match!.status === 'live' && match!.currentInnings === 2 && match!.target) {
+      const battingTeam = match!.batting_team === match!.teamOne?.name ? match!.teamOne : match!.teamTwo
+      const runsScored = battingTeam?.total_score || 0
+      const ballsFaced = battingTeam?.total_balls || 0
+      const runsNeeded = match!.target - runsScored
+      const ballsRemaining = (match!.overs! * 6) - ballsFaced
+
       if (runsNeeded > 0 && ballsRemaining > 0) {
-        return `${match.batting_team} need ${runsNeeded} runs in ${ballsRemaining} balls`
+        return `${match!.batting_team} need ${runsNeeded} runs in ${ballsRemaining} balls`
+      } else if (runsNeeded <= 0) {
+        return `${match!.batting_team} won!`
+      } else if (ballsRemaining <= 0) {
+        return `${match!.bowling_team} won!`
       }
     }
-    
-    return null
+
+    if (match?.status === 'completed') {
+      return 'Match completed'
+    }
+
+    return `Innings ${match?.currentInnings ?? 1} in progress.`
   }
 
   const getRequiredRunRate = () => {
     if (!hasRealData) return '18.90'
-    
-    if (match.status === 'live' && match.currentInnings === 2 && match.target) {
-      const battingTeam = match.batting_team === match.teamOne?.name ? match.teamOne : match.teamTwo
-      const runsNeeded = match.target - (battingTeam?.total_score || 0)
-      const ballsRemaining = (match.overs! * 6) - (battingTeam?.total_balls || 0)
-      
+
+    if (match!.status === 'live' && match!.currentInnings === 2 && match!.target) {
+      const battingTeam = match!.batting_team === match!.teamOne?.name ? match!.teamOne : match!.teamTwo
+      const runsNeeded = match!.target - (battingTeam?.total_score || 0)
+      const ballsRemaining = (match!.overs! * 6) - (battingTeam?.total_balls || 0)
+
       if (ballsRemaining > 0 && runsNeeded > 0) {
         return ((runsNeeded * 6) / ballsRemaining).toFixed(2)
       }
     }
-    
+
     return '0.00'
   }
 
   const matchStatus = getMatchStatus()
   const rrr = getRequiredRunRate()
 
-  // Current batsmen (for live display)
-  const currentBatsmen = activeTeamData.batting.filter(b => b.status === 'not out').slice(0, 2)
+  // 6. GET REAL "THIS OVER" DATA (use optional chain to avoid undefined crash)
+  const thisOverBalls = hasRealData && match?.ballHistory
+    ? getThisOver(match.ballHistory, match.currentInnings || 1)
+    : ['1', '4', 'W', '2', '0', '6'];
 
   const hasBatted = activeTeamData.batting && activeTeamData.batting.length > 0
   const hasBowled = opponentTeamData.bowling && opponentTeamData.bowling.length > 0
@@ -226,20 +261,22 @@ export default function ScoreCard({ match, isLive = false, viewersCount = 2300 }
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                   <h3 className="text-2xl font-bold mb-1">
-                    {hasRealData ? `Match ${match.matchCode}` : 'Summer League Final'}
+                    {hasRealData ? `${match?.teamOne?.name} vs ${match?.teamTwo?.name}` : 'Summer League Final'}
                   </h3>
                   <p className="text-primary-100">
-                    {hasRealData ? match.venue : 'Match 42 • Green Park Stadium'}
+                    {hasRealData ? match?.venue : 'Match 42 • Green Park Stadium'}
                   </p>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4" />
-                    <span className="text-sm">{isLive || match?.status === 'live' ? 'LIVE' : match?.status?.toUpperCase() || 'LIVE'}</span>
+                    {/* 7. USE REAL STATUS */}
+                    <span className="text-sm">{isLive ? 'LIVE' : match?.status?.toUpperCase() || 'LIVE'}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4" />
-                    <span className="text-sm">{viewersCount > 0 ? `${(viewersCount / 1000).toFixed(1)}K` : '2.3K'} watching</span>
+                    {/* 8. USE REAL VIEWERS */}
+                    <span className="text-sm">{realViewersCount} watching</span>
                   </div>
                 </div>
               </div>
@@ -247,12 +284,17 @@ export default function ScoreCard({ match, isLive = false, viewersCount = 2300 }
 
             {/* Teams and Scores */}
             <div className="p-8">
+              {/* 9. USE REAL DATA for TOP CARDS */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* TEAM 1 CARD */}
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="text-xl font-semibold text-gray-900">{team1Data.displayName}</h4>
-                      <p className="text-sm text-gray-600">Innings 1 of 1</p>
+                      {/* 10. USE TEAM-SPECIFIC INNINGS */}
+                      <p className="text-sm text-gray-600">
+                        {teamInningsLabel(team1Data.name)}
+                      </p>
                     </div>
                     <div className="text-right">
                       <div className="text-4xl font-bold text-primary-600">
@@ -261,6 +303,7 @@ export default function ScoreCard({ match, isLive = false, viewersCount = 2300 }
                       <div className="text-sm text-gray-600">{team1Data.totalOvers} overs</div>
                     </div>
                   </div>
+                  {/* Show batting card if Team 1 is batting */}
                   {match?.batting_team === team1Data.name && (
                     <div className="bg-gray-50 rounded-xl p-4">
                       <p className="text-xs text-gray-600 uppercase tracking-wider mb-3">Batting</p>
@@ -276,11 +319,14 @@ export default function ScoreCard({ match, isLive = false, viewersCount = 2300 }
                   )}
                 </div>
 
+                {/* TEAM 2 CARD */}
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="text-xl font-semibold text-gray-900">{team2Data.displayName}</h4>
-                      <p className="text-sm text-gray-600">Innings 1 of 1</p>
+                      <p className="text-sm text-gray-600">
+                        {hasRealData ? `Innings ${match?.currentInnings ?? 1}` : 'Innings 1 of 1'}
+                      </p>
                     </div>
                     <div className="text-right">
                       <div className="text-4xl font-bold text-gray-900">
@@ -289,19 +335,20 @@ export default function ScoreCard({ match, isLive = false, viewersCount = 2300 }
                       <div className="text-sm text-gray-600">{team2Data.totalOvers} overs</div>
                     </div>
                   </div>
-                  {match?.bowling_team === team2Data.name && opponentTeamData.bowling[0] && (
+                  {/* Show bowling card if Team 2 is bowling */}
+                  {match?.bowling_team === team2Data.name && currentBowler && (
                     <div className="bg-gray-50 rounded-xl p-4">
                       <p className="text-xs text-gray-600 uppercase tracking-wider mb-3">Bowling</p>
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
-                          <span className="font-medium">{opponentTeamData.bowling[0].name}</span>
+                          <span className="font-medium">{currentBowler.name}</span>
                           <span className="text-sm text-gray-600">
-                            {opponentTeamData.bowling[0].overs}-{opponentTeamData.bowling[0].maidens}-{opponentTeamData.bowling[0].runs}-{opponentTeamData.bowling[0].wickets}
+                            {currentBowler.overs}-{currentBowler.maidens}-{currentBowler.runs}-{currentBowler.wickets}
                           </span>
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-600">Economy</span>
-                          <span className="text-sm font-medium">{opponentTeamData.bowling[0].economy.toFixed(2)}</span>
+                          <span className="text-sm font-medium">{currentBowler.economy.toFixed(2)}</span>
                         </div>
                       </div>
                     </div>
@@ -309,7 +356,7 @@ export default function ScoreCard({ match, isLive = false, viewersCount = 2300 }
                 </div>
               </div>
 
-              {/* Match Status */}
+              {/* 11. USE REAL MATCH STATUS */}
               {matchStatus && (
                 <div className="mt-8 p-4 bg-gradient-to-r from-primary-50 to-accent-50 rounded-xl">
                   <div className="flex items-center justify-between">
@@ -319,27 +366,29 @@ export default function ScoreCard({ match, isLive = false, viewersCount = 2300 }
                         {matchStatus}
                       </span>
                     </div>
-                    <span className="text-sm text-gray-600">RRR: {rrr}</span>
+                    {/* Only show RRR if it's relevant */}
+                    {match?.currentInnings === 2 && match.status === 'live' && (
+                      <span className="text-sm text-gray-600">RRR: {rrr}</span>
+                    )}
                   </div>
                 </div>
               )}
 
-              {/* Recent Balls */}
+              {/* 12. USE REAL "THIS OVER" DATA */}
               <div className="mt-6">
                 <p className="text-xs text-gray-600 uppercase tracking-wider mb-3">This Over</p>
                 <div className="flex gap-2">
-                  {['1', '4', 'W', '2', '0', '6'].map((ball, index) => (
+                  {thisOverBalls.map((ball, index) => (
                     <div
                       key={index}
-                      className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
-                        ball === 'W'
+                      className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${ball === 'W'
                           ? 'bg-red-100 text-red-600'
                           : ball === '4'
-                          ? 'bg-blue-100 text-blue-600'
-                          : ball === '6'
-                          ? 'bg-green-100 text-green-600'
-                          : 'bg-gray-100 text-gray-700'
-                      }`}
+                            ? 'bg-blue-100 text-blue-600'
+                            : ball === '6'
+                              ? 'bg-green-100 text-green-600'
+                              : 'bg-gray-100 text-gray-700'
+                        }`}
                     >
                       {ball}
                     </div>
@@ -357,21 +406,19 @@ export default function ScoreCard({ match, isLive = false, viewersCount = 2300 }
             <div className="bg-gray-100 rounded-lg p-1 flex space-x-1 max-w-xs w-full mx-4">
               <button
                 onClick={() => setActiveTeam('teamOne')}
-                className={`w-1/2 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeTeam === 'teamOne'
+                className={`w-1/2 py-2 text-sm font-medium rounded-md transition-colors ${activeTeam === 'teamOne'
                     ? 'bg-primary-600 text-white shadow-sm'
                     : 'bg-white text-gray-700 hover:bg-gray-200'
-                }`}
+                  }`}
               >
                 {team1Data.name}
               </button>
               <button
                 onClick={() => setActiveTeam('teamTwo')}
-                className={`w-1/2 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeTeam === 'teamTwo'
+                className={`w-1/2 py-2 text-sm font-medium rounded-md transition-colors ${activeTeam === 'teamTwo'
                     ? 'bg-primary-600 text-white shadow-sm'
                     : 'bg-white text-gray-700 hover:bg-gray-200'
-                }`}
+                  }`}
               >
                 {team2Data.name}
               </button>

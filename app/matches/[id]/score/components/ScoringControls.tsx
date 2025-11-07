@@ -10,6 +10,7 @@ interface ScoringControlsProps {
   onBallRecorded: (outcome: string, extraRuns?: number) => void
   onUndo: () => void
   canUndo: boolean
+  disabled?: boolean
 }
 
 export const ScoringControls = ({

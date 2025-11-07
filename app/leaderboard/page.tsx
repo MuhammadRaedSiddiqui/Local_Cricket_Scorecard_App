@@ -1,38 +1,41 @@
-// FILE: app/leaderboard/page.tsx
+import { Suspense } from 'react';
+import LeaderboardTabs from '@/components/Leaderboard/LeaderboardTabs';
+import { Metadata } from 'next';
 
-import { Suspense } from 'react'; 
-import LeaderboardTabs from '@/components/Leaderboard/LeaderboardTabs'; 
-import { Metadata } from 'next'; 
+export const metadata: Metadata = {
+  title: 'Leaderboard - Local Cricket Scorecard',
+  description: 'View top cricket players batting and bowling statistics',
+};
 
-export const metadata: Metadata = { 
-  title: 'Leaderboard - Local Cricket Scorecard', 
-  description: 'View top cricket players batting and bowling statistics', 
-}; 
+async function getLeaderboardData() {
+  // Use the full URL for server-side fetch
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  
+  try {
+    const res = await fetch(`${baseUrl}/api/leaderboard`, {
+      // --- THIS IS THE FIX ---
+      // Revalidate this data every 3600 seconds (1 hour)
+      // This stops re-fetching on every request and serves a cached
+      // version, dramatically improving speed.
+      next: { revalidate: 3600 } 
+      // REMOVED: cache: 'no-store'
+      // --- END OF FIX ---
+    });
 
-async function getLeaderboardData() { 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'; 
-  try { 
-    const res = await fetch(`${baseUrl}/api/leaderboard`, { 
-      // ✅ OPTIMIZATION:
-      // Replaced 'no-store' with time-based revalidation.
-      // Next.js will cache the result for 60 seconds, drastically
-      // reducing database load and speeding up page loads.
-      next: { revalidate: 60 }, 
-    }); 
-    if (!res.ok) { 
-      throw new Error('Failed to fetch leaderboard data'); 
-    } 
+    if (!res.ok) {
+      throw new Error('Failed to fetch leaderboard data');
+    }
 
-    return res.json(); 
-  } catch (error) { 
-    console.error('Error fetching leaderboard:', error); 
+    return res.json();
+  } catch (error) {
+    console.error('Error fetching leaderboard:', error);
     return { 
       battingStats: [], 
-      bowlingStats: [], 
-      teamStats: [], 
-      totalMatches: 0, 
-    }; 
-  } 
+      bowlingStats: [],
+      teamStats: [],
+      totalMatches: 0 
+    };
+  }
 }
 
 function LoadingSkeleton() { 

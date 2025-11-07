@@ -27,6 +27,7 @@ export interface Team {
 export interface Ball {
   ballNumber: number
   overNumber: number
+  innings:number
   batsman: string
   bowler: string
   runs: number

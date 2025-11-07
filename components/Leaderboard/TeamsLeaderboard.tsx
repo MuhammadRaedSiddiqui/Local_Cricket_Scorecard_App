@@ -1,12 +1,16 @@
 'use client';
 
 import { motion } from 'framer-motion';
+// 1. RECOMMEND: Import from a central types file if you created one
+// import { TeamStats } from '@/types/index'; 
 
+// 2. FIX: Add the 'draws' property to the local interface
 interface TeamStats {
   name: string;
   matches: number;
   wins: number;
   losses: number;
+  draws: number; // <-- ADD THIS LINE
   winRate: number;
   totalRuns: number;
   averageScore: number;
@@ -28,6 +32,9 @@ export default function TeamsLeaderboard({ stats }: TeamsLeaderboardProps) {
     );
   }
 
+  // The rest of your component's JSX is already correct
+  // and will now display the 'team.draws' value.
+
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden">
       {/* Desktop Table */}
@@ -39,9 +46,9 @@ export default function TeamsLeaderboard({ stats }: TeamsLeaderboardProps) {
               <th className="px-6 py-4 text-left text-sm font-semibold">Team</th>
               <th className="px-6 py-4 text-center text-sm font-semibold">Mat</th>
               <th className="px-6 py-4 text-center text-sm font-semibold">Wins</th>
+              <th className="px-6 py-4 text-center text-sm font-semibold">Losses</th>
+              <th className="px-6 py-4 text-center text-sm font-semibold">Draws</th>
               <th className="px-6 py-4 text-center text-sm font-semibold">Win %</th>
-              <th className="px-6 py-4 text-center text-sm font-semibold">Avg Score</th>
-              <th className="px-6 py-4 text-center text-sm font-semibold">Highest</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
@@ -70,11 +77,9 @@ export default function TeamsLeaderboard({ stats }: TeamsLeaderboardProps) {
                 <td className="px-6 py-4 text-center">
                   <span className="font-bold text-purple-600 text-lg">{team.wins}</span>
                 </td>
+                <td className="px-6 py-4 text-center text-gray-700">{team.losses}</td>
+                <td className="px-6 py-4 text-center text-gray-700">{team.draws}</td>
                 <td className="px-6 py-4 text-center text-gray-700">{team.winRate}%</td>
-                <td className="px-6 py-4 text-center text-gray-700">{team.averageScore}</td>
-                <td className="px-6 py-4 text-center">
-                  <span className="font-semibold text-gray-900">{team.highestScore}</span>
-                </td>
               </motion.tr>
             ))}
           </tbody>
@@ -111,12 +116,12 @@ export default function TeamsLeaderboard({ stats }: TeamsLeaderboardProps) {
                 <div className="font-bold text-purple-600">{team.wins}</div>
               </div>
               <div className="text-center">
-                <div className="text-xs text-gray-500">Win Rate</div>
-                <div className="font-semibold">{team.winRate}%</div>
+                <div className="text-xs text-gray-500">Losses</div>
+                <div className="font-semibold">{team.losses}</div>
               </div>
               <div className="text-center">
-                <div className="text-xs text-gray-500">Avg Score</div>
-                <div className="font-semibold">{team.averageScore}</div>
+                <div className="text-xs text-gray-500">Draws</div>
+                <div className="font-semibold">{team.draws}</div>
               </div>
             </div>
           </motion.div>

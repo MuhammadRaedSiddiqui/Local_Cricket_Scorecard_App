@@ -1,18 +1,19 @@
 import { useReducer, useCallback, useRef, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
-import debounce from 'lodash/debounce'
 import { Match, ScoringState, ScoringAction, Ball } from '@/types/match'
 import {
   validateBallUpdate,
   calculateBallOutcome,
 } from '@/utils/scoringValidations'
+import { apiCall } from '@/utils/apiHelpers'
+import { pusherClient } from '@/lib/pusher-client'
 
-const initialScoringState: ScoringState = {
+export const initialScoringState: ScoringState = {
   selectedBatsman1: '',
   selectedBatsman2: '',
   selectedBowler: '',
-  previousBowler: '', // ✅ NEW
+  previousBowler: '',
   currentStriker: 'batsman1',
   currentOver: [],
   outBatsmen: [],
@@ -42,25 +43,30 @@ const scoringReducer = (
     case 'ADD_TO_CURRENT_OVER':
       return { ...state, currentOver: [...state.currentOver, action.payload] }
     case 'COMPLETE_OVER':
-      // ✅ Save current bowler as previous, clear current bowler
       return {
         ...state,
         currentOver: [],
-        previousBowler: state.selectedBowler, // ✅ NEW: Save current bowler
+        previousBowler: state.selectedBowler,
         selectedBowler: '', // Clear for new selection
         currentStriker:
           state.currentStriker === 'batsman1' ? 'batsman2' : 'batsman1',
       }
     case 'WICKET':
+      // *** THIS IS A KEY FIX ***
+      // When a wicket falls, we MUST clear the slot of the out batsman
+      const outBatsmanName = action.payload;
       return {
         ...state,
-        outBatsmen: [...state.outBatsmen, action.payload],
-      }
+        outBatsmen: [...state.outBatsmen, outBatsmanName],
+        // If batsman 1 was out, clear his slot. Otherwise, keep him.
+        selectedBatsman1: state.selectedBatsman1 === outBatsmanName ? '' : state.selectedBatsman1,
+        // If batsman 2 was out, clear his slot. Otherwise, keep him.
+        selectedBatsman2: state.selectedBatsman2 === outBatsmanName ? '' : state.selectedBatsman2,
+      };
     case 'RESET_FOR_INNINGS':
       return {
         ...initialScoringState,
         currentInnings: state.currentInnings + 1,
-        outBatsmen: [],
       }
     case 'SET_EXTRA_RUNS':
       return { ...state, extraRuns: action.payload }
@@ -82,492 +88,215 @@ export const useMatchScoring = (matchId: string) => {
 
   const [match, setMatch] = useState<Match | null>(null)
   const [loading, setLoading] = useState(true)
-  const [battingTeamName, setBattingTeamName] = useState('')
-  const [bowlingTeamName, setBowlingTeamName] = useState('')
-  const [ballHistory, setBallHistory] = useState<Ball[]>([])
-  const [isStateRestored, setIsStateRestored] = useState(false)
+  const [isStateRestored, setIsStateRestored] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // For double-click protection
+  const lastUpdateTimestamp = useRef<number>(0);
 
-  // ✅ Track if we should auto-save (prevent saving during restoration)
-  const [shouldAutoSave, setShouldAutoSave] = useState(false)
-
-  const saveToServer = useCallback(async (matchData: Match, currentScoringState: ScoringState, currentBallHistory: Ball[]) => {
-    try {
-      const token = localStorage.getItem('auth_token')
-
-      const matchToSave = {
-        ...matchData,
-        scoringState: currentScoringState,
-        ballHistory: currentBallHistory,
-      }
-
-      console.log('💾 Saving to server:', {
-        striker: currentScoringState.currentStriker,
-        batsman1: currentScoringState.selectedBatsman1,
-        batsman2: currentScoringState.selectedBatsman2,
-        bowler: currentScoringState.selectedBowler,
-        currentOver: currentScoringState.currentOver,
-      })
-
-      // ✅ NEW: Log toss data
-      console.log('🎲 Toss data being saved:', {
-        toss_winner: matchToSave.toss_winner,
-        toss_decision: matchToSave.toss_decision,
-        batting_team: matchToSave.batting_team,
-        bowling_team: matchToSave.bowling_team,
-        status: matchToSave.status,
-      })
-
-      const response = await fetch(`/api/matches/${matchId}/score`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ match: matchToSave }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to save')
-      }
-
-      console.log('✅ Match saved successfully')
-    } catch (err) {
-      console.error('❌ Error saving match:', err)
-      toast.error('Failed to save match state')
+  // --- 1. STATE SYNC FUNCTION ---
+  const syncStateFromServer = useCallback((serverData: Match, message?: string) => {
+    const serverTimestamp = new Date(serverData.updatedAt).getTime();
+    if (serverTimestamp < lastUpdateTimestamp.current && message) {
+      console.log('[Sync] Ignoring stale Pusher update');
+      return;
     }
-  }, [matchId])
+    
+    console.log('[Sync] Syncing state from server', serverData);
+    lastUpdateTimestamp.current = serverTimestamp;
 
-  // ✅ Debounced save
-  const debouncedSave = useRef(
-    debounce((matchData: Match, state: ScoringState, history: Ball[]) => {
-      saveToServer(matchData, state, history)
-    }, 1000)
-  ).current
-
-  // ✅ AUTO-SAVE: Save whenever scoringState or ballHistory changes (after restoration)
+    setMatch(serverData);
+    
+    if (serverData.scoringState) {
+      dispatch({ type: 'RESTORE_STATE', payload: serverData.scoringState });
+    } else {
+      if (serverData.status === 'completed') {
+        toast.success('Match is complete!');
+        router.push(`/matches/${matchId}`);
+      }
+    }
+    
+    if (message) {
+      toast(message, { icon: '🏏', duration: 2000 });
+    }
+  }, [matchId, router]);
+  
+  
+  // --- 2. PUSHER LISTENER ---
   useEffect(() => {
-    if (match && shouldAutoSave && isStateRestored) {
-      // ✅ ONLY auto-save if toss is completed
-      if (match.toss_winner && match.batting_team) {
-        console.log('🔄 Auto-saving due to state change...')
-        debouncedSave(match, scoringState, ballHistory)
-      } else {
-        console.log('⏸️ Skipping auto-save - toss not completed yet')
-      }
-    }
-  }, [scoringState, ballHistory, match, shouldAutoSave, isStateRestored, debouncedSave])
-
-  const fetchMatch = useCallback(async () => {
+    if (!matchId) return;
+    let userId: string | null = null;
     try {
-      const token = localStorage.getItem('auth_token')
-      console.log('🔍 Fetching match:', matchId)
+      const userData = localStorage.getItem('user');
+      if(userData) userId = JSON.parse(userData).id;
+    } catch (e) { console.error("Failed to parse user for Pusher"); }
 
-      const response = await fetch(`/api/matches/${matchId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (!response.ok) {
-        toast.error('Failed to load match')
-        router.push(`/matches/${matchId}`)
-        return
-      }
-
-      const data = await response.json()
-      const matchData = data.data
-
-      console.log('📦 Raw match data from API:', {
-        toss_winner: matchData.toss_winner,
-        batting_team: matchData.batting_team,
-        bowling_team: matchData.bowling_team,
-        scoringState: matchData.scoringState,
-        status: matchData.status,
-      })
-
-      // Initialize team scores
-      matchData.teamOne.total_score = matchData.teamOne.total_score || 0
-      matchData.teamOne.total_wickets = matchData.teamOne.total_wickets || 0
-      matchData.teamOne.total_balls = matchData.teamOne.total_balls || 0
-      matchData.teamOne.extras = matchData.teamOne.extras || 0
-
-      matchData.teamTwo.total_score = matchData.teamTwo.total_score || 0
-      matchData.teamTwo.total_wickets = matchData.teamTwo.total_wickets || 0
-      matchData.teamTwo.total_balls = matchData.teamTwo.total_balls || 0
-      matchData.teamTwo.extras = matchData.teamTwo.extras || 0
-
-      matchData.ballHistory = matchData.ballHistory || []
-
-      setMatch(matchData)
-      setBallHistory(matchData.ballHistory)
-
-      // Restore state if match is in progress
-      if (matchData.toss_winner && matchData.batting_team) {
-        console.log('✅ Toss completed, restoring state...')
-
-        setBattingTeamName(matchData.batting_team)
-        setBowlingTeamName(matchData.bowling_team)
-
-        if (matchData.scoringState) {
-          console.log('📦 Found scoring state in DB:', matchData.scoringState)
-
-          // Dispatch restoration
-          dispatch({ type: 'RESTORE_STATE', payload: matchData.scoringState })
-
-          setTimeout(() => {
-            setIsStateRestored(true)
-            setShouldAutoSave(true)
-
-            if (
-              matchData.scoringState.selectedBatsman1 &&
-              matchData.scoringState.selectedBatsman2 &&
-              matchData.scoringState.selectedBowler
-            ) {
-              toast.success('Resumed from where you left off!')
-            }
-          }, 0)
-        } else {
-          console.log('⚠️ No scoring state found in DB')
-          setIsStateRestored(true)
-          setShouldAutoSave(true)
-        }
-      } else {
-        console.log('⚠️ Toss not completed yet')
-        setIsStateRestored(true)
-        setShouldAutoSave(true)
-      }
-    } catch (err) {
-      toast.error('Failed to load match')
-      console.error('❌ Fetch match error:', err)
-      setIsStateRestored(true)
-      setShouldAutoSave(true)
-    } finally {
-      setLoading(false)
+    if (!userId) {
+        console.error("No user ID found, can't subscribe to real-time updates");
+        return;
     }
-  }, [matchId, router])
 
-  const getBattingTeam = useCallback(() => {
-    if (!match || !battingTeamName) return null
-    return battingTeamName === match.teamOne.name
-      ? match.teamOne
-      : match.teamTwo
-  }, [match, battingTeamName])
+    const channelName = `private-user-${userId}`;
+    let channel: any;
+    try {
+      channel = pusherClient.subscribe(channelName);
+      channel.bind('pusher:subscription_succeeded', () => {
+        console.log(`[Pusher] Subscribed to ${channelName}`);
+      });
+      channel.bind('pusher:subscription_error', (status: any) => {
+        console.error(`[Pusher] Subscription failed:`, status);
+      });
 
-  const getBowlingTeam = useCallback(() => {
-    if (!match || !bowlingTeamName) return null
-    return bowlingTeamName === match.teamOne.name
-      ? match.teamOne
-      : match.teamTwo
-  }, [match, bowlingTeamName])
+      channel.bind('match-updated', (data: any) => {
+        console.log('[Pusher] Received match-updated event:', data);
+        if (data.matchId === matchId) {
+          // The event payload (data) is the new, full Match object
+          syncStateFromServer(data as Match, 'Match updated!');
+        }
+      });
+    } catch (e) {
+      console.error('Failed to subscribe to Pusher:', e);
+    }
+    
+    return () => {
+      if (channel) {
+        pusherClient.unsubscribe(channelName);
+      }
+    };
+  }, [matchId, syncStateFromServer]);
 
-  // ✅ Immediate save function (for critical events like toss, innings end, match end)
-  const saveImmediately = useCallback(
-    async (updatedMatch: Match, currentState: ScoringState, currentHistory: Ball[]) => {
-      await saveToServer(updatedMatch, currentState, currentHistory)
-    },
-    [saveToServer]
-  )
+
+  // --- 3. INITIAL DATA FETCH ---
+  const fetchMatch = useCallback(async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`/api/matches/${matchId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to load match');
+      }
+      
+      const data = await response.json();
+      syncStateFromServer(data.data);
+      setIsStateRestored(true);
+
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to load match');
+      router.push(`/matches/${matchId}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [matchId, router, syncStateFromServer]);
+  
+
+  // --- 4. SERVER ACTIONS (Event Triggers) ---
 
   const recordBall = useCallback(
     async (outcome: string, providedExtraRuns?: number) => {
-      if (!match) return
-
-      const battingTeam = getBattingTeam()
-      const bowlingTeam = getBowlingTeam()
-
-      if (!battingTeam || !bowlingTeam) return
-
-      const errors = validateBallUpdate(
-        match,
-        outcome,
-        battingTeam,
-        scoringState.currentInnings
-      )
-
+      if (isSubmitting || !match) return;
+      
+      const battingTeam = match.batting_team === match.teamOne.name ? match.teamOne : match.teamTwo;
+      if (!battingTeam) return;
+      
+      const errors = validateBallUpdate(match, outcome, battingTeam, scoringState.currentInnings);
       if (errors.some((e) => e.type === 'error')) {
-        toast.error(errors[0].message)
-        return
+        toast.error(errors[0].message);
+        return;
       }
+      
+      setIsSubmitting(true);
+      const extraRunsToUse = providedExtraRuns ?? 0;
 
-      const extraRunsToUse =
-        providedExtraRuns !== undefined
-          ? providedExtraRuns
-          : scoringState.extraRuns
-
-      const {
-        runs,
-        isWicket,
-        isExtra,
-        ballCounts,
-        shouldRotateStrike,
-      } = calculateBallOutcome(outcome, extraRunsToUse)
-
-      const updatedMatch = { ...match }
-      const teamToUpdate =
-        battingTeamName === updatedMatch.teamOne.name ? 'teamOne' : 'teamTwo'
-
-      updatedMatch[teamToUpdate].total_score += runs
-
-      if (isExtra) {
-        updatedMatch[teamToUpdate].extras += runs
-      }
-
-      if (ballCounts) {
-        updatedMatch[teamToUpdate].total_balls += 1
-      }
-
-      const currentBatsman =
-        scoringState.currentStriker === 'batsman1'
-          ? scoringState.selectedBatsman1
-          : scoringState.selectedBatsman2
-
-      const ball: Ball = {
-        ballNumber: updatedMatch[teamToUpdate].total_balls,
-        overNumber:
-          Math.floor(updatedMatch[teamToUpdate].total_balls / 6) + 1,
-        batsman: currentBatsman,
-        bowler: scoringState.selectedBowler,
-        runs,
-        outcome,
-        isExtra,
-        isWicket,
-        timestamp: new Date(),
-      }
-
-      const newBallHistory = [...ballHistory, ball]
-      setBallHistory(newBallHistory)
-
+      // --- Optimistic UI Update ---
+      const { isWicket, shouldRotateStrike } = 
+        calculateBallOutcome(outcome, extraRunsToUse);
+        
+      dispatch({ type: 'ADD_TO_CURRENT_OVER', payload: outcome });
       if (isWicket) {
-        updatedMatch[teamToUpdate].total_wickets += 1
+        const currentBatsman = scoringState.currentStriker === 'batsman1' 
+          ? scoringState.selectedBatsman1 
+          : scoringState.selectedBatsman2;
+        dispatch({ type: 'WICKET', payload: currentBatsman });
+      } else if (shouldRotateStrike) {
+        dispatch({ type: 'ROTATE_STRIKE' });
+      }
+      const legalBalls = [...scoringState.currentOver, outcome].filter(b => b !== 'WD' && b !== 'NB').length;
+      if (legalBalls === 6) {
+        dispatch({ type: 'COMPLETE_OVER' });
+      }
+      // --- End Optimistic UI ---
 
-        const newOutBatsmen = [...scoringState.outBatsmen, currentBatsman]
-        const newCurrentOver = [...scoringState.currentOver, outcome]
+      try {
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch(`/api/matches/${matchId}/record-ball`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ outcome, extraRuns: extraRunsToUse }),
+        });
 
-        dispatch({ type: 'WICKET', payload: currentBatsman })
-        dispatch({ type: 'ADD_TO_CURRENT_OVER', payload: outcome })
-
-        const totalPlayers = battingTeam.players.length
-        const wicketsDown = updatedMatch[teamToUpdate].total_wickets
-
-        if (
-          wicketsDown >= totalPlayers - 1 ||
-          (totalPlayers === 2 && wicketsDown >= 1)
-        ) {
-          toast(`All out! ${battingTeam.name} innings complete`)
-          handleInningsEnd(updatedMatch, newBallHistory)
-          return
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to save ball event');
         }
 
-        if (scoringState.currentStriker === 'batsman1') {
-          dispatch({ type: 'SET_BATSMAN_1', payload: '' })
-        } else {
-          dispatch({ type: 'SET_BATSMAN_2', payload: '' })
-        }
+        // Sync with authoritative server state
+        syncStateFromServer(data.data);
 
-        toast('Select next batsman')
-        setMatch(updatedMatch)
-        // State will auto-save via useEffect
-        return
+      } catch (err: any) {
+        toast.error(`Error: ${err.message}`);
+        fetchMatch(); // Rollback on error
+      } finally {
+        setIsSubmitting(false);
       }
-
-      // ✅ Add to current over FIRST
-      dispatch({ type: 'ADD_TO_CURRENT_OVER', payload: outcome })
-
-      const legalBallsInOver = [...scoringState.currentOver, outcome].filter(
-        (b) => !['WD', 'NB'].includes(b)
-      ).length
-
-      if (legalBallsInOver === 6) {
-        toast.success('Over completed!')
-        dispatch({ type: 'COMPLETE_OVER' }) // ✅ This now handles previousBowler
-        toast('Please select new bowler')
-      } else if (shouldRotateStrike && !isWicket) {
-        dispatch({ type: 'ROTATE_STRIKE' })
-      }
-
-      dispatch({ type: 'SET_EXTRA_RUNS', payload: 0 })
-
-      const totalBalls = updatedMatch.overs * 6
-      if (updatedMatch[teamToUpdate].total_balls >= totalBalls) {
-        handleInningsEnd(updatedMatch, newBallHistory)
-        return
-      }
-
-      if (scoringState.currentInnings === 2 && updatedMatch.target) {
-        if (updatedMatch[teamToUpdate].total_score >= updatedMatch.target) {
-          const wicketsLeft = 10 - updatedMatch[teamToUpdate].total_wickets
-          toast.success(`${battingTeamName} won by ${wicketsLeft} wickets!`)
-          updatedMatch.status = 'completed'
-
-          setMatch(updatedMatch)
-
-          await saveImmediately(updatedMatch, scoringState, newBallHistory)
-
-          setTimeout(() => {
-            router.push(`/matches/${matchId}`)
-          }, 3000)
-          return
-        }
-      }
-
-      setMatch(updatedMatch)
-      // Auto-save will trigger via useEffect
     },
-    [
-      match,
-      scoringState,
-      battingTeamName,
-      bowlingTeamName,
-      ballHistory,
-      getBattingTeam,
-      getBowlingTeam,
-      matchId,
-      router,
-      saveImmediately,
-    ]
-  )
-
-  const handleInningsEnd = async (
-    updatedMatch: Match,
-    newBallHistory: Ball[]
-  ) => {
-    if (scoringState.currentInnings === 1) {
-      const teamToUpdate =
-        battingTeamName === updatedMatch.teamOne.name ? 'teamOne' : 'teamTwo'
-      updatedMatch.target = updatedMatch[teamToUpdate].total_score + 1
-
-      toast.success(`First innings complete! Target: ${updatedMatch.target}`)
-
-      setBattingTeamName(bowlingTeamName)
-      setBowlingTeamName(battingTeamName)
-
-      dispatch({ type: 'RESET_FOR_INNINGS' })
-
-      setMatch(updatedMatch)
-
-      // ✅ Immediate save for innings change
-      const newState: ScoringState = {
-        ...initialScoringState,
-        currentInnings: 2,
-      }
-
-      await saveImmediately(updatedMatch, newState, newBallHistory)
-    } else {
-      updatedMatch.status = 'completed'
-
-      const battingTeamData =
-        battingTeamName === updatedMatch.teamOne.name
-          ? updatedMatch.teamOne
-          : updatedMatch.teamTwo
-
-      if (battingTeamData.total_score < updatedMatch.target! - 1) {
-        const runDiff = updatedMatch.target! - 1 - battingTeamData.total_score
-        toast.success(`${bowlingTeamName} won by ${runDiff} runs!`)
-      } else if (battingTeamData.total_score === updatedMatch.target! - 1) {
-        toast.success('Match Tied!')
-      }
-
-      setMatch(updatedMatch)
-
-      // ✅ Immediate save for match end
-      await saveImmediately(updatedMatch, { ...scoringState, currentInnings: 2 }, newBallHistory)
-
-      setTimeout(() => {
-        router.push(`/matches/${matchId}`)
-      }, 3000)
-    }
-  }
-
-  const undoLastBall = useCallback(async () => {
-    if (ballHistory.length === 0) {
-      toast.error('Nothing to undo')
-      return
-    }
-
-    const lastBall = ballHistory[ballHistory.length - 1]
-    const updatedMatch = { ...match! }
-
-    const teamToUpdate =
-      battingTeamName === updatedMatch.teamOne.name ? 'teamOne' : 'teamTwo'
-
-    updatedMatch[teamToUpdate].total_score -= lastBall.runs
-
-    if (lastBall.isExtra) {
-      updatedMatch[teamToUpdate].extras -= lastBall.runs
-    }
-
-    if (!['WD', 'NB'].includes(lastBall.outcome)) {
-      updatedMatch[teamToUpdate].total_balls -= 1
-    }
-
-    if (lastBall.isWicket) {
-      updatedMatch[teamToUpdate].total_wickets -= 1
-
-      const newOutBatsmen = scoringState.outBatsmen.filter(
-        (b) => b !== lastBall.batsman
-      )
-
-      if (scoringState.selectedBatsman1 === '') {
-        dispatch({ type: 'SET_BATSMAN_1', payload: lastBall.batsman })
-      } else if (scoringState.selectedBatsman2 === '') {
-        dispatch({ type: 'SET_BATSMAN_2', payload: lastBall.batsman })
-      }
-
-      dispatch({
-        type: 'RESTORE_STATE',
-        payload: {
-          ...scoringState,
-          outBatsmen: newOutBatsmen,
-        },
-      })
-    }
-
-    const newBallHistory = ballHistory.slice(0, -1)
-    setBallHistory(newBallHistory)
-
-    const newCurrentOver = [...scoringState.currentOver]
-    if (newCurrentOver.length > 0) {
-      newCurrentOver.pop()
-      dispatch({
-        type: 'RESTORE_STATE',
-        payload: { ...scoringState, currentOver: newCurrentOver },
-      })
-    }
-
-    setMatch(updatedMatch)
-
-    // ✅ Immediate save for undo
-    await saveImmediately(updatedMatch, scoringState, newBallHistory)
-
-    toast.success('Last ball undone')
-  }, [ballHistory, match, battingTeamName, scoringState, saveImmediately])
-
-  const updateMatch = useCallback((updates: Partial<Match>) => {
-  if (!match) return null
+    [matchId, isSubmitting, syncStateFromServer, match, scoringState, fetchMatch]
+  );
   
-  const updatedMatch = { ...match, ...updates }
-  setMatch(updatedMatch)
-  return updatedMatch
-}, [match])
+  // This is a "full state" update, so it calls the old API
+  const saveFullState = useCallback(async (updates: Partial<Match>) => {
+     if (isSubmitting) return;
+     setIsSubmitting(true);
+     try {
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch(`/api/matches/${matchId}/score`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(updates), // Send only the specific updates
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        
+        syncStateFromServer(data.data, 'State saved!');
+     } catch (e: any) {
+        toast.error(e.message);
+     } finally {
+        setIsSubmitting(false);
+     }
+  }, [matchId, isSubmitting, syncStateFromServer]);
 
+  // --- 5. DERIVED STATE ---
+  const battingTeam = match?.batting_team === match?.teamOne.name ? match?.teamOne : match?.teamTwo;
+  const bowlingTeam = match?.bowling_team === match?.teamOne.name ? match?.teamOne : match?.teamTwo;
 
   return {
     match,
     loading,
+    isSubmitting,
     scoringState,
     dispatch,
-    battingTeamName,
-    setBattingTeamName,
-    bowlingTeamName,
-    setBowlingTeamName,
-    getBattingTeam,
-    getBowlingTeam,
-    recordBall,
-    undoLastBall,
+    battingTeam,
+    bowlingTeam,
     fetchMatch,
-    ballHistory,
+    recordBall,
+    saveFullState, // Use this for Toss, Player Select
     isStateRestored,
-    saveImmediately,
-    updateMatch
-  }
-}
+  };
+};

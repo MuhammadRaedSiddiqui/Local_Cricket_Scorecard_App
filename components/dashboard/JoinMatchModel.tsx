@@ -4,6 +4,9 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { X, Link2, ArrowRight } from 'lucide-react'
+import { useRouter } from 'next/navigation' // Import useRouter
+import apiClient from '@/lib/api-client' // Import your apiClient
+import toast from 'react-hot-toast' // Import toast for feedback
 
 interface JoinMatchModalProps {
   isOpen: boolean
@@ -13,37 +16,61 @@ interface JoinMatchModalProps {
 export default function JoinMatchModal({ isOpen, onClose }: JoinMatchModalProps) {
   const [matchCode, setMatchCode] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter() // Initialize router
 
   const handleJoin = async () => {
-    if (!matchCode.trim()) return
+    if (!matchCode.trim()) {
+      toast.error('Please enter a match code');
+      return;
+    }
     
-    setIsLoading(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    setIsLoading(false)
-    onClose()
-    // Show success toast
+    setIsLoading(true);
+    
+    try {
+      const response = await apiClient.joinMatch(matchCode.trim());
+      
+      toast.success(response.message || 'Successfully joined match!');
+      
+      onClose();
+      router.push(`/matches/${response.data._id}`);
+
+    } catch (error: any) {
+      console.error('Join match error:', error);
+      if (error.message.includes('404')) {
+        toast.error('Match not found. Please check the code.');
+      } else if (error.message.includes('409')) {
+        toast.error('You are already in this match.');
+        onClose();
+      } else {
+        toast.error(error.message || 'Failed to join match.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <>
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
-          />
-
-          {/* Modal */}
+        // --- THIS IS THE NEW WRAPPER ---
+        // It's a single fixed container that uses flexbox to center its child.
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={onClose} // Add onClick here to close when clicking the backdrop
+        >
+          {/* This modal div is now the child. 
+            It doesn't need any fixed/top/left/translate classes.
+            We add onClick(e.stopPropagation) to prevent clicks inside the modal from closing it.
+          */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white rounded-3xl shadow-xl z-50 p-6"
+            className="w-full max-w-md bg-white rounded-3xl shadow-xl z-50 p-6 relative" // 'relative' is good practice
+            onClick={(e) => e.stopPropagation()} // Stop click from bubbling to backdrop
           >
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
@@ -94,6 +121,7 @@ export default function JoinMatchModal({ isOpen, onClose }: JoinMatchModalProps)
                 variant="secondary"
                 onClick={onClose}
                 className="flex-1"
+                disabled={isLoading}
               >
                 Cancel
               </Button>
@@ -116,7 +144,7 @@ export default function JoinMatchModal({ isOpen, onClose }: JoinMatchModalProps)
               </Button>
             </div>
           </motion.div>
-        </>
+        </motion.div>
       )}
     </AnimatePresence>
   )
