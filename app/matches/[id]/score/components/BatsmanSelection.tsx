@@ -3,6 +3,7 @@
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Player } from '@/types/match'
+import { AlertCircle } from 'lucide-react'
 
 interface BatsmanSelectionProps {
   availableBatsmen: Player[]
@@ -21,8 +22,8 @@ export const BatsmanSelection = ({
 }: BatsmanSelectionProps) => {
   return (
     <Card className="p-6 mb-6 border-2 border-orange-500">
-      <h3 className="text-lg font-bold mb-2">
-        {reason === 'wicket' ? '⚠️ Select New Batsman' : 'Select Batsman'}
+      <h3 className="text-lg font-bold mb-2 flex items-center gap-2">
+        {reason === 'wicket' ? <><AlertCircle className="h-5 w-5 text-orange-600" /> Select New Batsman</> : 'Select Batsman'}
       </h3>
       <p className="text-sm text-gray-600 mb-4">
         {reason === 'wicket'

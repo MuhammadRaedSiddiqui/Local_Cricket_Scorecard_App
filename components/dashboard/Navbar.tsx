@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { LogOut, Plus, Bell, Settings } from 'lucide-react'
 import { useState } from 'react'
+import { Logo } from '../ui/Logo'
 
 interface NavbarProps {
   user: {
@@ -36,11 +37,13 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
             className="flex items-center gap-3 cursor-pointer"
             onClick={() => router.push('/dashboard')}
           >
-            <span className="text-2xl">🏏</span>
+            {/* --- 2. THIS IS THE CHANGE --- */}
+            <Logo className="h-16 w-16" /> 
             <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                Local League Cricket
+              <h1 className="text-xl font-bold text-gray-900">
+                Crick<span className="text-primary-600">Live</span>
               </h1>
+            {/* --- END OF CHANGE --- */}
               <p className="text-xs text-gray-500 hidden sm:block">Score with friends</p>
             </div>
           </div>

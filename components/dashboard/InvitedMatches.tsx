@@ -19,6 +19,7 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from '@/components/ui/AlertDialog'
+import { DashboardSkeleton } from './DashboardSkeleton'
 
 
 
@@ -170,23 +171,7 @@ export default function InvitedMatches({ matches = [], loading, onRefresh }: Inv
 
 
   if (loading) {
-    return (
-      <section className="mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">Invited Matches</h2>
-            <p className="text-sm text-gray-500">Matches where you're a participant</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2].map((i) => (
-            <div key={i} className="animate-pulse">
-              <Card className="p-5 h-64 bg-gray-100"></Card>
-            </div>
-          ))}
-        </div>
-      </section>
-    )
+    return <DashboardSkeleton />;
   }
 
   return (

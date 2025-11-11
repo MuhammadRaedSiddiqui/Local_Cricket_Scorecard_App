@@ -2,7 +2,8 @@
 
 import { motion } from 'framer-motion';
 // 1. FIX: Corrected import path from your types file
-import { BowlingStats } from '@/types/leaderboard'; 
+import { BowlingStats } from '@/types/leaderboard';
+import { Zap } from 'lucide-react';
 
 interface BowlingLeaderboardProps {
   stats: BowlingStats[];
@@ -12,8 +13,7 @@ export default function BowlingLeaderboard({ stats }: BowlingLeaderboardProps) {
   if (stats.length === 0)
     return (
       <div className="text-center py-12 text-gray-500">
-        <div className="text-5xl mb-4">⚡</div>
-        <p className="text-lg">No bowling data available yet</p>
+        <Zap className="h-16 w-16 text-gray-400 mx-auto mb-4" />        <p className="text-lg">No bowling data available yet</p>
       </div>
     );
 
@@ -30,7 +30,7 @@ export default function BowlingLeaderboard({ stats }: BowlingLeaderboardProps) {
               <th className="px-6 py-4 text-center text-sm font-semibold">Wkts</th>
               <th className="px-6 py-4 text-center text-sm font-semibold">Avg</th>
               <th className="px-6 py-4 text-center text-sm font-semibold">Econ</th>
-         
+
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
@@ -50,7 +50,7 @@ export default function BowlingLeaderboard({ stats }: BowlingLeaderboardProps) {
                   {player.average !== null ? player.average : 'N/A'}
                 </td>
                 <td className="px-6 py-4 text-center">{player.economy}</td>
-                
+
               </motion.tr>
             ))}
           </tbody>
@@ -70,12 +70,11 @@ export default function BowlingLeaderboard({ stats }: BowlingLeaderboardProps) {
           >
             <div className="flex items-center gap-3 mb-3">
               {/* Rank */}
-              <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold text-sm ${
-                index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-white' :
-                index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-white' :
-                index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white' :
-                'bg-gray-100 text-gray-700'
-              }`}>
+              <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold text-sm ${index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-white' :
+                  index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-white' :
+                    index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white' :
+                      'bg-gray-100 text-gray-700'
+                }`}>
                 {index + 1}
               </div>
               {/* Player Info */}

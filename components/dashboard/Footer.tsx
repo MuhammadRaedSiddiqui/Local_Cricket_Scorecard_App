@@ -1,12 +1,14 @@
+import { Logo } from "../ui/Logo";
+
 export default function Footer() {
   return (
     <footer className="bg-white/80 backdrop-blur-sm border-t border-gray-100 mt-16">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl py-8">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <span className="text-xl">🏏</span>
+            <Logo className="h-6 w-6" />
             <p className="text-sm text-gray-600">
-              Built for local cricket communities
+              CrickLive
             </p>
           </div>
 

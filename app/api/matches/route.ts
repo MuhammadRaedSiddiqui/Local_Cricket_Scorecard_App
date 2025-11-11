@@ -126,3 +126,42 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// DELETE - Delete a match by id (via query param)
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await verifyToken(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) {
+      return NextResponse.json({ error: 'Match id is required' }, { status: 400 });
+    }
+
+    await connectDB();
+
+    const match = await Match.findById(id);
+    if (!match) {
+      return NextResponse.json({ error: 'Match not found' }, { status: 404 });
+    }
+
+    const isCreator = match.createdBy?.toString() === user.userId;
+    const isAdmin = (match.admins || []).some((a: any) => a.toString() === user.userId);
+    if (!isCreator && !isAdmin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    await Match.findByIdAndDelete(id);
+    if (match.createdBy) {
+      await User.findByIdAndUpdate(match.createdBy, { $pull: { createdMatches: match._id } });
+    }
+
+    return NextResponse.json({ success: true, message: 'Match deleted' });
+  } catch (error) {
+    console.error('Delete match error:', error);
+    return NextResponse.json({ error: 'Failed to delete match' }, { status: 500 });
+  }
+}

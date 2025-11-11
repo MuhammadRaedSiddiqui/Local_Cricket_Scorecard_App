@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
-import { X, Link2, ArrowRight } from 'lucide-react'
+import { X, Link2, ArrowRight, Lightbulb } from 'lucide-react'
 import { useRouter } from 'next/navigation' // Import useRouter
 import apiClient from '@/lib/api-client' // Import your apiClient
 import toast from 'react-hot-toast' // Import toast for feedback
@@ -109,8 +109,9 @@ export default function JoinMatchModal({ isOpen, onClose }: JoinMatchModalProps)
               </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
-                <p className="text-xs text-blue-700">
-                  💡 Tip: Match codes are usually 6 characters long and contain letters and numbers
+                <p className="text-xs text-blue-700 flex items-center">
+                  <Lightbulb className="h-4 w-4 mr-1.5 flex-shrink-0" />
+                  <span>Tip: Match codes are 6 characters long (letters/numbers).</span>
                 </p>
               </div>
             </div>

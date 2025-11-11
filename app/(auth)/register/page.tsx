@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { motion } from 'framer-motion'
-import { User, Mail, Lock, ArrowRight, Cricket } from 'lucide-react'
+import { User, Mail, Lock, ArrowRight } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
+import { Logo } from '@/components/ui/Logo'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -80,11 +81,13 @@ export default function RegisterPage() {
         >
           {/* Logo */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-green-400 to-emerald-400 rounded-2xl mb-4">
-              <span className="text-3xl">🏏</span>
+            {/* --- 3. THIS IS THE CHANGE --- */}
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-400 rounded-2xl mb-4">
+              <Logo className="h-12 w-12 text-white" />
             </div>
+            {/* --- END OF CHANGE --- */}
             <h1 className="text-3xl font-bold text-gray-900">Create Account</h1>
-            <p className="text-gray-600 mt-2">Join Local League Cricket today</p>
+            <p className="text-gray-600 mt-2">Join CrickLive today</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">

@@ -17,6 +17,7 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from '@/components/ui/AlertDialog'
+import { MatchCardSkeleton } from './MatchCardSkeleton'
 
 interface MatchData {
   _id: string;
@@ -152,16 +153,16 @@ export default function MyMatches({ matches, loading, onRefresh }: MyMatchesProp
       console.log('🎯 Token:', token ? 'exists' : 'missing')
       console.log('🎯 Calling DELETE API for match:', matchToDelete._id)
 
-      const response = await fetch(`/api/matches/${matchToDelete._id}`, {
+      const response = await fetch(`/api/matches?id=${encodeURIComponent(matchToDelete._id)}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
         }
       })
 
-      
+
       const data = await response.json()
-      
+
 
       if (response.ok) {
         console.log('🎯 Delete successful!')
@@ -191,13 +192,36 @@ export default function MyMatches({ matches, loading, onRefresh }: MyMatchesProp
             <h2 className="text-xl font-bold text-gray-900">My Matches</h2>
             <p className="text-sm text-gray-500">Matches you've created or manage</p>
           </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="animate-pulse">
-              <Card className="p-5 h-64 bg-gray-100"></Card>
+          {/* We also render the filter/refresh UI in a loading state 
+              to prevent layout shift, but you could skeleton this too. */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-xl opacity-50">
+              {(['all', 'live', 'upcoming', 'completed'] as const).map((status) => (
+                <button
+                  key={status}
+                  disabled
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium capitalize ${status === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600'}`}
+                >
+                  {status}
+                </button>
+              ))}
             </div>
-          ))}
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled
+              className="gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Use the new high-fidelity skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <MatchCardSkeleton />
+          <MatchCardSkeleton />
+          <MatchCardSkeleton />
         </div>
       </section>
     )
@@ -231,7 +255,7 @@ export default function MyMatches({ matches, loading, onRefresh }: MyMatchesProp
 
             {/* Refresh Button */}
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={onRefresh}
               className="gap-2"

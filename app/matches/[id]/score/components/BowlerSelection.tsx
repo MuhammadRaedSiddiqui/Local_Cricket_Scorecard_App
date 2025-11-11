@@ -2,6 +2,7 @@
 
 import { Card } from '@/components/ui/card'
 import { Player } from '@/types/match'
+import { Crosshair } from 'lucide-react'
 
 interface BowlerSelectionProps {
   bowlers: Player[]
@@ -23,8 +24,8 @@ export const BowlerSelection = ({
 
   return (
     <Card className="p-6 mb-6 border-2 border-blue-500">
-      <h3 className="text-lg font-bold mb-2">
-        {reason === 'over' ? '🎯 Select New Bowler' : 'Select Bowler'}
+      <h3 className="text-lg font-bold mb-2 flex items-center gap-2">
+        {reason === 'over' ? <><Crosshair className="h-5 w-5 text-blue-600" /> Select New Bowler</> : 'Select Bowler'}
       </h3>
       <p className="text-sm text-gray-600 mb-4">
         {reason === 'over'

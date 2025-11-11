@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { motion } from 'framer-motion'
 import { Mail, Lock, ArrowRight } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
+import { Logo } from '@/components/ui/Logo'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -36,17 +37,14 @@ export default function LoginPage() {
       // Store token and user data
       localStorage.setItem('auth_token', data.token)
       localStorage.setItem('user', JSON.stringify(data.user))
-      
+
       toast.success('Welcome back!')
-      
+
       // Redirect to dashboard
       console.log('Redirecting to dashboard...')
-      setTimeout(() => {
-        console.log('Pushing route...')
-        // router.push('/dashboard')
-        // router.replace('/dashboard')
-        window.location.href = '/dashboard'
-      }, 1000)
+
+      router.push('/dashboard')
+
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Login failed')
     } finally {
@@ -66,11 +64,13 @@ export default function LoginPage() {
         >
           {/* Logo */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-green-400 to-emerald-400 rounded-2xl mb-4">
-              <span className="text-3xl">🏏</span>
+            {/* --- 2. THIS IS THE CHANGE --- */}
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-400 rounded-2xl mb-4">
+              <Logo className="h-12 w-12 text-white" />
             </div>
+            {/* --- END OF CHANGE --- */}
             <h1 className="text-3xl font-bold text-gray-900">Welcome Back</h1>
-            <p className="text-gray-600 mt-2">Sign in to manage your matches</p>
+            <p className="text-gray-600 mt-2">Sign in to your CrickLive account</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -85,7 +85,7 @@ export default function LoginPage() {
                   type="email"
                   required
                   value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                   placeholder="you@example.com"
                 />
@@ -103,7 +103,7 @@ export default function LoginPage() {
                   type="password"
                   required
                   value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                   placeholder="••••••••"
                 />

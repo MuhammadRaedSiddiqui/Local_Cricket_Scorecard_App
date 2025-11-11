@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { Trophy } from 'lucide-react';
 // 1. RECOMMEND: Import from a central types file if you created one
 // import { TeamStats } from '@/types/index'; 
 
@@ -26,8 +27,7 @@ export default function TeamsLeaderboard({ stats }: TeamsLeaderboardProps) {
   if (stats.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500">
-        <div className="text-5xl mb-4">🏆</div>
-        <p className="text-lg">No team data available yet</p>
+        <Trophy className="h-16 w-16 text-gray-400 mx-auto mb-4" />        <p className="text-lg">No team data available yet</p>
       </div>
     );
   }
@@ -61,12 +61,11 @@ export default function TeamsLeaderboard({ stats }: TeamsLeaderboardProps) {
                 className="hover:bg-purple-50 transition-colors duration-150"
               >
                 <td className="px-6 py-4">
-                  <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold text-sm ${
-                    index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-white shadow-lg' :
-                    index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-white' :
-                    index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white' :
-                    'bg-gray-100 text-gray-700'
-                  }`}>
+                  <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold text-sm ${index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-white shadow-lg' :
+                      index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-white' :
+                        index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white' :
+                          'bg-gray-100 text-gray-700'
+                    }`}>
                     {index + 1}
                   </div>
                 </td>
@@ -97,12 +96,11 @@ export default function TeamsLeaderboard({ stats }: TeamsLeaderboardProps) {
             className="p-4 hover:bg-purple-50 transition-colors"
           >
             <div className="flex items-center gap-3 mb-3">
-              <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold text-sm ${
-                index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-white' :
-                index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-white' :
-                index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white' :
-                'bg-gray-100 text-gray-700'
-              }`}>
+              <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold text-sm ${index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-white' :
+                  index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-white' :
+                    index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white' :
+                      'bg-gray-100 text-gray-700'
+                }`}>
                 {index + 1}
               </div>
               <div>

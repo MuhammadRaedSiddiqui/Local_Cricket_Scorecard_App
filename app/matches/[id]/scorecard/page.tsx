@@ -29,7 +29,7 @@ export default function ScorecardPage() {
   useEffect(() => {
     fetchMatch()
   }, [matchId])
-  
+
   const fetchMatch = async () => {
     try {
       const token = localStorage.getItem('auth_token')
@@ -44,9 +44,9 @@ export default function ScorecardPage() {
         router.push('/dashboard')
         return
       }
-      
+
       const data = await response.json()
-      console.log("scoreboard data",data)
+      console.log("scoreboard data", data)
       setMatch(data.data)
     } catch (err) {
       toast.error('Failed to load match details')
@@ -84,8 +84,7 @@ export default function ScorecardPage() {
 
   const handleShare = () => {
     const result = getMatchResult()
-    const shareText = `🏏 Match Scorecard\n\n${match?.teamOne.name} vs ${match?.teamTwo.name}\n${result}\n\nMatch Code: ${match?.matchCode}\n\nView full scorecard: ${window.location.href}`
-
+    const shareText = `CrickLive Match Scorecard\n\n${match?.teamOne.name} vs ${match?.teamTwo.name}\n${result}\n\nMatch Code: ${match?.matchCode}\n\nView full scorecard: ${window.location.href}`
     if (navigator.share) {
       navigator.share({
         title: 'Cricket Match Scorecard',

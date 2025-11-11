@@ -11,6 +11,7 @@ import Footer from '@/components/dashboard/Footer'
 import { Toaster } from 'react-hot-toast'
 import toast from 'react-hot-toast'
 import { pusherClient } from '@/lib/pusher-client'
+import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton'
 
 // --- Interfaces (remain the same) ---
 interface User {
@@ -237,19 +238,14 @@ export default function DashboardPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50/30 via-white to-emerald-50/20">
-        <div className="text-center">
-          <div className="h-12 w-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading dashboard...</p>
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (!user) {
     return null;
   }
+
+  
 
   return (
     <>

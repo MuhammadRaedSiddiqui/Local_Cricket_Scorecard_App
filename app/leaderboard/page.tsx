@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import LeaderboardTabs from '@/components/Leaderboard/LeaderboardTabs';
 import { Metadata } from 'next';
+import { ArrowUp10, BarChart3, Trophy } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'Leaderboard - Local Cricket Scorecard',
@@ -59,7 +60,7 @@ export default async function LeaderboardPage() {
       <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-12 px-4"> 
         <div className="max-w-6xl mx-auto"> 
           <h1 className="text-4xl md:text-5xl font-bold mb-3 flex items-center gap-3"> 
-            🏆 Players Leaderboard 
+            <Trophy className="h-10 w-10" /> Players Leaderboard 
           </h1>
           <p className="text-blue-100 text-lg"> 
             Top 10 Cricket Players Performance Statistics 
@@ -82,9 +83,10 @@ export default async function LeaderboardPage() {
 
         {/* Footer Info */}
         <div className="mt-8 text-center"> 
-          <p className="text-gray-600 text-sm"> 
-            📊 Stats updated every 60 seconds • 🔝 Top 10 players displayed 
-          </p> 
+          <p className="text-gray-600 text-sm flex items-center justify-center gap-4"> 
+            <span className="flex items-center gap-1.5"><BarChart3 className="h-4 w-4" /> Stats updated every 60 seconds</span>
+            <span className="flex items-center gap-1.5"><ArrowUp10 className="h-4 w-4" /> Top 10 players displayed</span>
+          </p>
         </div> 
       </div> 
     </div>

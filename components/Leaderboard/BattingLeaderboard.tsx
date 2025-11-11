@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { BattingStats } from '@/types/leaderboard'; // Use centralized types
+import { BarChartHorizontalBig } from 'lucide-react';
 
 interface BattingLeaderboardProps {
     stats: BattingStats[];
@@ -11,8 +12,7 @@ export default function BattingLeaderboard({ stats }: BattingLeaderboardProps) {
     if (stats.length === 0)
         return (
             <div className="text-center py-12 text-gray-500">
-                <div className="text-5xl mb-4">🏏</div>
-                <p className="text-lg">No batting data available yet</p>
+                <BarChartHorizontalBig className="h-16 w-16 text-gray-400 mx-auto mb-4" />                <p className="text-lg">No batting data available yet</p>
             </div>
         );
 
@@ -68,9 +68,9 @@ export default function BattingLeaderboard({ stats }: BattingLeaderboardProps) {
                     >
                         <div className="flex items-center gap-3 mb-3">
                             <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold text-sm ${index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-white' :
-                                    index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-white' :
-                                        index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white' :
-                                            'bg-gray-100 text-gray-700'
+                                index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-white' :
+                                    index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white' :
+                                        'bg-gray-100 text-gray-700'
                                 }`}>
                                 {index + 1}
                             </div>
