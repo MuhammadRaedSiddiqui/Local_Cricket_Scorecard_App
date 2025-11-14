@@ -15,7 +15,7 @@ interface LogoProps {
 export const Logo = ({ className }: LogoProps) => {
   return (
     <Image
-      src="/images/Logo.png" // This points to public/logo-icon.svg
+      src="/images/Logo.svg" // This points to public/logo-icon.svg
       alt="CrickLive Logo"
       width={40}
       height={40}

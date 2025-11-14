@@ -20,7 +20,7 @@ export function TossForm({
   const [tossWinner, setTossWinner] = useState('')
   const [tossDecision, setTossDecision] = useState<'bat' | 'bowl' | ''>('')
   const [loading, setLoading] = useState(false)
-
+  console.log("TOSS FORM TRIGGERED ========>")
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -66,7 +66,7 @@ export function TossForm({
                   onChange={(e) => setTossWinner(e.target.value)}
                   className="text-green-600"
                   disabled={loading}
-                  data-testid={`toss-winner-${teamOneName.toLowerCase().replace(/\s+/g, '-')}`}
+                  data-testid={`toss-winner-${teamOneName?.toLowerCase().replace(/\s+/g, '-')}`}
                 />
                 <span className="font-medium">{teamOneName}</span>
               </label>
@@ -79,7 +79,7 @@ export function TossForm({
                   onChange={(e) => setTossWinner(e.target.value)}
                   className="text-green-600"
                   disabled={loading}
-                  data-testid={`toss-winner-${teamTwoName.toLowerCase().replace(/\s+/g, '-')}`}
+                  data-testid={`toss-winner-${teamTwoName?.toLowerCase().replace(/\s+/g, '-')}`}
                 />
                 <span className="font-medium">{teamTwoName}</span>
               </label>

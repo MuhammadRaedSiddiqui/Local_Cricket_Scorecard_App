@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 import { motion } from 'framer-motion'
+import ModernScorecard from '@/components/sections/ModernScorecard'
 
 export default function ScorecardPage() {
   const params = useParams()
@@ -174,7 +175,7 @@ export default function ScorecardPage() {
         </div>
 
         <div className="container mx-auto px-4 py-8 max-w-6xl">
-          {/* Match Header Info */}
+         
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -197,7 +198,7 @@ export default function ScorecardPage() {
                     </div>
                   </div>
 
-                  {/* Match Result */}
+                 
                   {match.status === 'completed' && (
                     <div className="bg-white/20 rounded-lg p-3 mt-4">
                       <p className="text-xl font-bold">
@@ -223,7 +224,7 @@ export default function ScorecardPage() {
                 </div>
               </div>
 
-              {/* Toss Info */}
+              
               {match.toss_winner && (
                 <div className="mt-4 pt-4 border-t border-white/20">
                   <p className="text-sm text-green-100">
@@ -234,17 +235,17 @@ export default function ScorecardPage() {
             </Card>
           </motion.div>
 
-          {/* Use the Existing ScoreCard Component */}
+          
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
+            <ModernScorecard match={match} />
             <ScoreCard
               match={match} />
           </motion.div>
 
-          {/* Match Code Share Section */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

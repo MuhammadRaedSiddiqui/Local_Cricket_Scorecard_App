@@ -1,108 +1,149 @@
 'use client'
 
 import { motion } from 'framer-motion';
-// 1. FIX: Corrected import path from your types file
 import { BowlingStats } from '@/types/leaderboard';
-import { Zap } from 'lucide-react';
+import { Zap, Trophy } from 'lucide-react';
+import { useState } from 'react';
 
 interface BowlingLeaderboardProps {
   stats: BowlingStats[];
 }
 
+// Rank Badge Component
+const RankBadge = ({ rank }: { rank: number }) => {
+  const getBadgeStyle = () => {
+    switch (rank) {
+      case 1:
+        return 'bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-600';
+      case 2:
+        return 'bg-gradient-to-br from-slate-300 via-slate-400 to-slate-500';
+      case 3:
+        return 'bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600';
+      default:
+        return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  return (
+    <motion.div
+      whileHover={{ scale: 1.1, rotate: 5 }}
+      className={`flex items-center justify-center w-12 h-12 rounded-xl font-black ${rank > 3 ? 'text-gray-700' : 'text-white'
+        } ${getBadgeStyle()}`}
+    >
+      {rank <= 3 && rank === 1 ? <Trophy className="w-5 h-5" /> : rank}
+    </motion.div>
+  );
+};
+
 export default function BowlingLeaderboard({ stats }: BowlingLeaderboardProps) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
   if (stats.length === 0)
     return (
-      <div className="text-center py-12 text-gray-500">
-        <Zap className="h-16 w-16 text-gray-400 mx-auto mb-4" />        <p className="text-lg">No bowling data available yet</p>
+      <div className="flex flex-col items-center justify-center py-24 text-gray-400">
+        <Zap className="w-20 h-20 mb-4 opacity-20" />
+        <p className="text-lg font-medium">No bowling statistics available</p>
       </div>
     );
 
   return (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-      {/* Desktop Table (This part was correct) */}
-      <div className="hidden md:block overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gradient-to-r from-green-600 to-green-700 text-white">
-            <tr>
-              <th className="px-6 py-4 text-left text-sm font-semibold">Rank</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold">Player</th>
-              <th className="px-6 py-4 text-center text-sm font-semibold">Mat</th>
-              <th className="px-6 py-4 text-center text-sm font-semibold">Wkts</th>
-              <th className="px-6 py-4 text-center text-sm font-semibold">Avg</th>
-              <th className="px-6 py-4 text-center text-sm font-semibold">Econ</th>
-
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {stats.map((player, index) => (
-              <motion.tr
-                key={player.name}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="hover:bg-green-50 transition-colors duration-150"
+    <div className="space-y-4">
+      {/* Desktop View */}
+      <div className="hidden lg:block">
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
+          <div className="grid grid-cols-6 gap-4 px-6 py-4 text-gray-500 text-xs font-semibold uppercase border-b border-gray-200">
+            <div className="col-span-2">Player</div>
+            <div className="text-center">Matches</div>
+            <div className="text-center">Wickets</div>
+            <div className="text-center">Average</div>
+            <div className="text-center">Economy</div>
+          </div>
+          {stats.map((player, index) => (
+            <motion.div
+              key={player.name}
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: index * 0.1, type: 'spring' }}
+              onHoverStart={() => setHoveredIndex(index)}
+              onHoverEnd={() => setHoveredIndex(null)}
+              className="relative"
+            >
+              <div
+                className={`grid grid-cols-6 gap-4 px-6 py-5 items-center border-b border-gray-200/50 transition-all duration-300 ${hoveredIndex === index ? 'bg-green-50' : ''
+                  }`}
               >
-                <td className="px-6 py-4 text-center">{index + 1}</td>
-                <td className="px-6 py-4 font-semibold">{player.name}</td>
-                <td className="px-6 py-4 text-center">{player.matches}</td>
-                <td className="px-6 py-4 text-center text-green-600 font-bold">{player.wickets}</td>
-                <td className="px-6 py-4 text-center">
-                  {player.average !== null ? player.average : 'N/A'}
-                </td>
-                <td className="px-6 py-4 text-center">{player.economy}</td>
-
-              </motion.tr>
-            ))}
-          </tbody>
-        </table>
+                <div className="col-span-2 flex items-center gap-4">
+                  <RankBadge rank={index + 1} />
+                  <div>
+                    <div className="font-bold text-gray-900 text-lg">{player.name}</div>
+                    <div className="text-sm text-gray-500">{player.matches} matches</div>
+                  </div>
+                </div>
+                <div className="text-center text-gray-700">{player.matches}</div>
+                <div className="text-center">
+                  <div className="text-gray-900 font-bold">{player.wickets}</div>
+                </div>
+                <div className="text-center text-gray-700 font-semibold">
+                  {player.average || 'N/A'}
+                </div>
+                <div className="text-center">
+                  <span className="text-gray-900 font-bold">{player.economy}</span>
+                </div>
+              </div>
+              {hoveredIndex === index && (
+                <motion.div
+                  layoutId="activeRowBowling"
+                  className="absolute inset-0 border-l-4 border-green-500 pointer-events-none"
+                  initial={false}
+                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                />
+              )}
+            </motion.div>
+          ))}
+        </div>
       </div>
 
-      {/* --- 2. FIX: Correct Mobile Card View --- */}
-      {/* This now iterates over 'player' and shows correct bowling stats */}
-      <div className="md:hidden divide-y divide-gray-200">
+      {/* Mobile & Tablet View */}
+      <div className="lg:hidden space-y-4">
         {stats.map((player, index) => (
           <motion.div
             key={player.name}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05 }}
-            className="p-4 hover:bg-green-50 transition-colors"
+            transition={{ delay: index * 0.1 }}
+            whileHover={{ scale: 1.02 }}
+            className="relative overflow-hidden rounded-2xl bg-white border border-gray-200 shadow-xl"
           >
-            <div className="flex items-center gap-3 mb-3">
-              {/* Rank */}
-              <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold text-sm ${index === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-white' :
-                  index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-white' :
-                    index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white' :
-                      'bg-gray-100 text-gray-700'
-                }`}>
-                {index + 1}
+            <div className="relative p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-4">
+                  <RankBadge rank={index + 1} />
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">{player.name}</h3>
+                    <p className="text-sm text-gray-500">{player.matches} matches played</p>
+                  </div>
+                </div>
+                <Zap className="w-6 h-6 text-green-500" />
               </div>
-              {/* Player Info */}
-              <div>
-                <div className="font-bold text-gray-900">{player.name}</div>
-                <div className="text-sm text-gray-500">{player.matches} matches</div>
-              </div>
-            </div>
-            {/* Stats Grid */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="text-center">
-                <div className="text-xs text-gray-500">Wickets</div>
-                <div className="font-bold text-green-600">{player.wickets}</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xs text-gray-500">Average</div>
-                <div className="font-semibold">{player.average !== null ? player.average : 'N/A'}</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xs text-gray-500">Economy</div>
-                <div className="font-semibold">{player.economy}</div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                  <div className="text-sm text-gray-500 mb-1">Wickets</div>
+                  <div className="text-2xl font-bold text-gray-900">{player.wickets}</div>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                  <div className="text-sm text-gray-500 mb-1">Average</div>
+                  <div className="text-xl font-bold text-gray-900">{player.average || 'N/A'}</div>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                  <div className="text-sm text-gray-500 mb-1">Economy</div>
+                  <div className="text-xl font-bold text-gray-900">{player.economy}</div>
+                </div>
               </div>
             </div>
           </motion.div>
         ))}
       </div>
-      {/* --- END OF FIX 2 --- */}
-
     </div>
   );
 }
