@@ -110,7 +110,7 @@ export const useMatchScoring = (matchId: string) => {
     } else {
       if (serverData.status === 'completed') {
         toast.success('Match is complete!');
-        router.replace(`/matches/${matchId}`);
+        router.push(`/matches/${matchId}`);
       }
     }
     
@@ -184,7 +184,7 @@ export const useMatchScoring = (matchId: string) => {
 
     } catch (err: any) {
       toast.error(err.message || 'Failed to load match');
-      router.replace(`/matches/${matchId}`);
+      router.push(`/matches/${matchId}`);
     } finally {
       setLoading(false);
     }
@@ -209,7 +209,7 @@ export const useMatchScoring = (matchId: string) => {
       setIsSubmitting(true);
       const extraRunsToUse = providedExtraRuns ?? 0;
 
-      // --- 1. OPTIMISTIC UI UPDATE (unchanged) ---
+      // --- Optimistic UI Update ---
       const { isWicket, shouldRotateStrike } = 
         calculateBallOutcome(outcome, extraRunsToUse);
         
@@ -244,20 +244,17 @@ export const useMatchScoring = (matchId: string) => {
           throw new Error(data.error || 'Failed to save ball event');
         }
 
-        // --- 2. TRUST THE OPTIMISTIC UPDATE ---
-        // Avoid calling syncStateFromServer to prevent flicker.
-        lastUpdateTimestamp.current = new Date(data.data.updatedAt).getTime();
-        setMatch(data.data);
+        // Sync with authoritative server state
+        syncStateFromServer(data.data);
 
       } catch (err: any) {
         toast.error(`Error: ${err.message}`);
-        // --- 3. ROLLBACK ON ERROR ---
-        fetchMatch();
+        fetchMatch(); // Rollback on error
       } finally {
         setIsSubmitting(false);
       }
     },
-    [matchId, isSubmitting, match, scoringState, fetchMatch] // removed syncStateFromServer
+    [matchId, isSubmitting, syncStateFromServer, match, scoringState, fetchMatch]
   );
   
   // This is a "full state" update, so it calls the old API

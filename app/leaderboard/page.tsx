@@ -4,6 +4,7 @@ import LeaderboardTabs from '@/components/Leaderboard/LeaderboardTabs';
 import { Metadata } from 'next';
 import { ArrowUp10, BarChart3, Trophy } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import BackButton from '@/components/ui/BackButton';
 
 export const metadata: Metadata = {
   title: 'Leaderboard - Local Cricket Scorecard',
@@ -57,6 +58,8 @@ function LoadingSkeleton() {
 export default async function LeaderboardPage() {
   const data = await getLeaderboardData();
   return (
+    <>
+      <BackButton />
     <div className="min-h-screen bg-gray-50 p-0 md:p-8">
       <div className="bg-gradient-to-r from-primary-500 to-accent-600 text-white py-6 md:mb-4 md:py-12 md:px-4">       
          <div className="max-w-6xl mx-auto">
@@ -79,6 +82,7 @@ export default async function LeaderboardPage() {
         </Suspense>
       </div>
     </div>
+    </>
   );
 }
     // <div className="min-h-screen bg-gradient-to-br from-green-50/30 via-white to-emerald-50/20">      {/* Header */}

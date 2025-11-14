@@ -341,7 +341,7 @@ export default function ModernScorecard({ match, onBack, onShare }: ScoreCardPro
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 p-4 md:p-8">
       {/* Header Bar */}
-      <div className="max-w-5xl mx-auto mb-6">
+      {/* <div className="max-w-5xl mx-auto mb-6">
         <div className="flex items-center justify-between">
           <button 
             onClick={onBack}
@@ -358,7 +358,7 @@ export default function ModernScorecard({ match, onBack, onShare }: ScoreCardPro
             <span className="hidden sm:inline">Share</span>
           </button>
         </div>
-      </div>
+      </div> */}
 
       {/* Main Scorecard Card */}
       <div className="max-w-5xl mx-auto">
@@ -368,46 +368,36 @@ export default function ModernScorecard({ match, onBack, onShare }: ScoreCardPro
           className="bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200"
         >
           {/* Match Header */}
-          <div className="p-6 md:p-8 bg-gradient-to-r from-green-50 to-emerald-50">
-            <div className="flex items-center justify-between mb-8">
+          <div className="p-6 md:p-8 bg-gray-50">
+            <div className="flex flex-col px-4 md:flex-row items-center justify-between gap-6">
               {/* Team 1 */}
-              <div className="flex items-center gap-4 flex-1">
-                <div>
-                  <h2 className="text-xl md:text-2xl font-bold text-gray-900">
-                    {match.teamOne.name}
-                  </h2>
+              <div className="flex flex-col items-center md:items-start flex-1">
+                <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
+                  {match.teamOne.name}
+                </h2>
+                <div className="text-3xl md:text-4xl font-black text-gray-900 mt-2">
+                  {match.teamOne.total_score}/{match.teamOne.total_wickets}
+                </div>
+                <div className="text-sm text-gray-500 mt-1">
+                  ({ballsToOvers(match.teamOne.total_balls)} overs)
                 </div>
               </div>
 
-              {/* Scores */}
-              <div className="text-center px-4">
-                <div className="flex items-center gap-4">
-                  <div className="text-center">
-                    <div className="text-3xl md:text-4xl font-black text-gray-900">
-                      {match.teamOne.total_score}/{match.teamOne.total_wickets}
-                    </div>
-                    <div className="text-sm text-gray-500 mt-1">
-                      ({ballsToOvers(match.teamOne.total_balls)})
-                    </div>
-                  </div>
-                  <div className="text-2xl text-gray-400 font-light">vs</div>
-                  <div className="text-center">
-                    <div className="text-3xl md:text-4xl font-black text-gray-900">
-                      {match.teamTwo.total_score}/{match.teamTwo.total_wickets}
-                    </div>
-                    <div className="text-sm text-gray-500 mt-1">
-                      ({ballsToOvers(match.teamTwo.total_balls)})
-                    </div>
-                  </div>
-                </div>
+              {/* VS Divider */}
+              <div className="flex items-center justify-center">
+                <div className="text-xl md:text-2xl font-semibold text-gray-400 px-4">vs</div>
               </div>
 
               {/* Team 2 */}
-              <div className="flex items-center gap-4 flex-1 justify-end">
-                <div className="text-right">
-                  <h2 className="text-xl md:text-2xl font-bold text-gray-900">
-                    {match.teamTwo.name}
-                  </h2>
+              <div className="flex flex-col items-center md:items-end flex-1">
+                <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
+                  {match.teamTwo.name}
+                </h2>
+                <div className="text-3xl md:text-4xl font-black text-gray-900 mt-2">
+                  {match.teamTwo.total_score}/{match.teamTwo.total_wickets}
+                </div>
+                <div className="text-sm text-gray-500 mt-1">
+                  ({ballsToOvers(match.teamTwo.total_balls)} overs)
                 </div>
               </div>
             </div>

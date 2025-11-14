@@ -25,7 +25,7 @@ export default function WelcomeBanner({
       transition={{ duration: 0.5 }}
       className="mb-8"
     >
-      <div className="bg-gradient-to-r from-green-500/10 via-emerald-500/10 to-teal-500/10 rounded-3xl p-6 sm:p-8 border border-green-200/50 relative overflow-hidden">
+      <div className="bg-gradient-to-r from-green-300/10 via-emerald-400/10 to-teal-400/10 rounded-3xl p-6 sm:p-8 border border-green-200/50 relative overflow-hidden">
         {/* Background decoration */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-green-300/20 to-emerald-300/20 rounded-full blur-3xl -mr-32 -mt-32"></div>
 
@@ -38,7 +38,7 @@ export default function WelcomeBanner({
                 transition={{ delay: 0.2 }}
                 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2"
               >
-                Welcome back, {userName}! 👋
+                Welcome back, {userName}! 
               </motion.h1>
               <motion.p
                 initial={{ opacity: 0, x: -20 }}

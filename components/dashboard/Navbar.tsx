@@ -60,12 +60,12 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
             </Button>
 
             {/* Notifications */}
-            <button className="p-2 hover:bg-gray-100 rounded-xl transition-colors relative">
+            {/* <button className="p-2 hover:bg-gray-100 rounded-xl transition-colors relative">
               <Bell className="h-5 w-5 text-gray-600" />
               <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
                 2
               </span>
-            </button>
+            </button> */}
 
             {/* User Menu */}
             <div className="relative">
@@ -91,13 +91,13 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
                   />
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-20">
                     <button
-                      onClick={() => router.push('/profile')}
+                      // onClick={() => router.push('/profile')}
                       className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                     >
                       Profile
                     </button>
                     <button
-                      onClick={() => router.push('/settings')}
+                      // onClick={() => router.push('/settings')}
                       className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
                     >
                       <Settings className="h-4 w-4" />

@@ -6,23 +6,23 @@ export default function Footer() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl py-8">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <Logo className="h-6 w-6" />
+            <Logo className="h-12 w-12" />
             <p className="text-sm text-gray-600">
               CrickLive
             </p>
           </div>
 
           <nav className="flex items-center gap-6 text-sm">
-            <a href="/about" className="text-gray-600 hover:text-green-600 transition-colors">
+            <a className="text-gray-600 hover:text-green-600 transition-colors">
               About
             </a>
-            <a href="/privacy" className="text-gray-600 hover:text-green-600 transition-colors">
+            <a className="text-gray-600 hover:text-green-600 transition-colors">
               Privacy
             </a>
-            <a href="/contact" className="text-gray-600 hover:text-green-600 transition-colors">
+            <a className="text-gray-600 hover:text-green-600 transition-colors">
               Contact
             </a>
-            <a href="/docs" className="text-gray-600 hover:text-green-600 transition-colors">
+            <a className="text-gray-600 hover:text-green-600 transition-colors">
               Docs
             </a>
           </nav>

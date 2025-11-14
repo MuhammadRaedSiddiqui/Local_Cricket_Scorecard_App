@@ -107,7 +107,7 @@ export default function MatchViewPage() {
       const userData = localStorage.getItem('user')
       if (userData) {
         const user = JSON.parse(userData)
-        setIsAdmin(data.data.createdBy === user._id || data.data.admins?.includes(user._id))
+        setIsAdmin(data.data.createdBy === user.id || data.data.admins?.includes(user.id))
       }
      
     } catch (err) {
@@ -231,7 +231,7 @@ export default function MatchViewPage() {
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <button
-                onClick={() => router.back()}
+                onClick={() => router.push("/dashboard")}
                 className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
               >
                 <ArrowLeft className="h-5 w-5" />
@@ -327,8 +327,8 @@ export default function MatchViewPage() {
 
                   {/* Team 2 */}
                   <div className="space-y-3">
-                    <div className="bg-purple-50 rounded-lg p-4">
-                      <h4 className="font-bold text-purple-900 text-lg mb-2">{match.teamTwo.name}</h4>
+                    <div className="bg-green-50 rounded-lg p-4">
+                      <h4 className="font-bold text-green-900 text-lg mb-2">{match.teamTwo.name}</h4>
                       <div className="space-y-2">
                         {match.teamTwo.players.map((player, index) => (
                           <div key={index} className="flex items-center justify-between text-sm">

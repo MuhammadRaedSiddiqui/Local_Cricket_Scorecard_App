@@ -20,7 +20,7 @@ export function TossForm({
   const [tossWinner, setTossWinner] = useState('')
   const [tossDecision, setTossDecision] = useState<'bat' | 'bowl' | ''>('')
   const [loading, setLoading] = useState(false)
-  console.log("TOSS FORM TRIGGERED ========>")
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 

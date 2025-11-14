@@ -650,10 +650,10 @@ return (
                     </div>
                   </div>
 
-                  <div className="bg-purple-50 rounded-xl p-4">
-                    <h3 className="font-bold text-purple-900 mb-2">{team2.name}</h3>
-                    <p className="text-sm text-purple-700 mb-2">{team2.players.length} players</p>
-                    <div className="text-xs text-purple-600">
+                  <div className="bg-green-50 rounded-xl p-4">
+                    <h3 className="font-bold text-green-900 mb-2">{team2.name}</h3>
+                    <p className="text-sm text-green-700 mb-2">{team2.players.length} players</p>
+                    <div className="text-xs text-green-600">
                       Captain: {team2.players.find(p => p.is_captain)?.name || 'Not set'}
                     </div>
                   </div>

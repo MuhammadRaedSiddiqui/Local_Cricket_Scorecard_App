@@ -4,7 +4,7 @@ import Match, { IMatch, IPlayer, ITeam, IScoringState, IBall } from '@/models/Ma
 import { verifyToken } from '@/lib/auth';
 import { calculateBallOutcome } from '@/utils/scoringValidations';
 import { pusherServer } from '@/lib/pusher';
-import mongoose from 'mongoose';
+import mongoose from 'mongoose'; // We no longer need ClientSession, but mongoose is still used
 
 interface Params {
   params: { id: string };
@@ -100,191 +100,172 @@ export async function POST(request: NextRequest, { params }: Params) {
   }
 
   await connectDB();
+  // --- FIX: REMOVED MONGOOSE SESSION ---
+  // const session = await mongoose.startSession(); // <-- REMOVED
+
+  let updatedMatch: IMatch | null = null;
+  let matchEnded = false;
 
   try {
-    // --- 1. FETCH CURRENT STATE (LIGHTWEIGHT) ---
-    const match = await Match.findById(params.id).lean();
-    if (!match) throw new Error('Match not found');
+    // --- FIX: REMOVED `withTransaction` WRAPPER ---
+    // await session.withTransaction(async () => { // <-- REMOVED
 
-    // --- 2. VALIDATION & PRE-COMPUTATION ---
-    const isAuthorized =
-      match.scorers.some((id: any) => id.toString() === user.userId) ||
-      match.admins.some((id: any) => id.toString() === user.userId) ||
-      match.createdBy.toString() === user.userId;
+      // 3. --- FETCH CURRENT STATE (Authoritative) ---
+      const match = await Match.findById(params.id); // <-- REMOVED .session(session)
+      if (!match) throw new Error('Match not found');
 
-    if (!isAuthorized) throw new Error('Not authorized to score this match');
-    if (match.status !== 'live') throw new Error('Match is not live');
+      const isAuthorized =
+        match.scorers.some((id: any) => id.toString() === user.userId) ||
+        match.admins.some((id: any) => id.toString() === user.userId) ||
+        match.createdBy.toString() === user.userId;
 
-    const state = match.scoringState;
-    if (!state) throw new Error('Match has not been set up for scoring.');
+      if (!isAuthorized) throw new Error('Not authorized to score this match');
+      if (match.status !== 'live') throw new Error('Match is not live');
 
-    const battingTeamKey = match.batting_team === match.teamOne.name ? 'teamOne' : 'teamTwo';
-    const bowlingTeamKey = match.bowling_team === match.teamOne.name ? 'teamOne' : 'teamTwo';
-    const battingTeam = match[battingTeamKey];
-    const strikerName = state.currentStriker === 'batsman1' ? state.selectedBatsman1 : state.selectedBatsman2;
-    const bowlerName = state.selectedBowler;
+      const state = match.scoringState;
+      if (!state) throw new Error('Match has not been set up for scoring.');
+      
+      const battingTeamKey = match.batting_team === match.teamOne.name ? 'teamOne' : 'teamTwo';
+      const bowlingTeamKey = match.bowling_team === match.teamOne.name ? 'teamOne' : 'teamTwo';
+      const battingTeam = match[battingTeamKey];
+      const bowlingTeam = match[bowlingTeamKey];
 
-    const { runs, isWicket, isExtra, ballCounts, shouldRotateStrike } =
-      calculateBallOutcome(outcome, extraRuns);
+      // 4. --- CALCULATE NEW STATE (Server-Authoritative) ---
+      const { runs, isWicket, isExtra, ballCounts, shouldRotateStrike } =
+        calculateBallOutcome(outcome, extraRuns);
 
-    const newBall: IBall = {
-      ballNumber: battingTeam.total_balls + (ballCounts ? 1 : 0),
-      overNumber: Math.floor(battingTeam.total_balls / 6) + 1,
-      innings: match.currentInnings,
-      batsman: strikerName,
-      bowler: bowlerName,
-      runs: runs,
-      outcome: outcome,
-      isExtra: isExtra,
-      isWicket: isWicket,
-      timestamp: new Date(),
-    };
+      const strikerName = state.currentStriker === 'batsman1' ? state.selectedBatsman1 : state.selectedBatsman2;
+      const bowlerName = state.selectedBowler;
 
-    // --- REFACTORED: build scoringStateClone instead of mixed $set/$push on scoringState ---
-    let scoringStateClone = { ...state, currentOver: [...state.currentOver, outcome] };
+      // Update Team Totals
+      battingTeam.total_score += runs;
+      if (isExtra) battingTeam.extras += runs;
+      if (ballCounts) battingTeam.total_balls += 1;
 
-    // Wicket handling (mutate clone instead of $push/$set nested paths)
-    if (isWicket) {
-      scoringStateClone.outBatsmen = [...scoringStateClone.outBatsmen, strikerName];
-      if (state.currentStriker === 'batsman1') {
-        scoringStateClone.selectedBatsman1 = '';
-      } else {
-        scoringStateClone.selectedBatsman2 = '';
+      // Update Player Stats
+      updatePlayerStats(outcome, runs, isWicket, isExtra, ballCounts, extraRuns, strikerName, bowlerName, battingTeam, bowlingTeam);
+
+      // This was the missing piece
+      const newBall: IBall = {
+        ballNumber: battingTeam.total_balls,
+        overNumber: Math.floor((battingTeam.total_balls - (ballCounts ? 1 : 0)) / 6) + 1,
+        innings: match.currentInnings, 
+        batsman: strikerName,
+        bowler: bowlerName,
+        runs: runs,
+        outcome: outcome,
+        isExtra: isExtra,
+        isWicket: isWicket,
+        timestamp: new Date(),
+      };
+      
+      match.ballHistory.push(newBall);
+
+      // Update Scoring State
+      state.currentOver.push(outcome);
+
+      if (isWicket) {
+        battingTeam.total_wickets += 1;
+        state.outBatsmen.push(strikerName);
+        if (state.currentStriker === 'batsman1') state.selectedBatsman1 = '';
+        else state.selectedBatsman2 = '';
+      } else if (shouldRotateStrike) {
+        state.currentStriker = state.currentStriker === 'batsman1' ? 'batsman2' : 'batsman1';
       }
-    } else if (shouldRotateStrike) {
-      scoringStateClone.currentStriker = state.currentStriker === 'batsman1' ? 'batsman2' : 'batsman1';
-    }
 
-    // Over completion logic
-    const legalBalls = scoringStateClone.currentOver.filter(b => b !== 'WD' && b !== 'NB').length;
-    let inningsOver = false;
-    if (legalBalls === 6) {
-      scoringStateClone.previousBowler = state.selectedBowler;
-      scoringStateClone.selectedBowler = '';
-      scoringStateClone.currentOver = [];
-      // rotate strike at over end
-      scoringStateClone.currentStriker = scoringStateClone.currentStriker === 'batsman1' ? 'batsman2' : 'batsman1';
-      if ((battingTeam.total_balls + (ballCounts ? 1 : 0)) >= match.overs * 6) {
+      // --- 5. CHECK FOR INNINGS/MATCH END CONDITIONS ---
+      let inningsOver = false;
+
+      // Condition 1: All Out
+      if (battingTeam.total_wickets >= battingTeam.players.length - 1) {
+        console.log('[Server] All Out!');
         inningsOver = true;
       }
-    }
 
-    // All out condition
-    if (isWicket && (battingTeam.total_wickets + 1) >= (battingTeam.players.length || 10) - 1) {
-      inningsOver = true;
-    }
+      // Condition 2: Overs Completed
+      const legalBalls = state.currentOver.filter(b => b !== 'WD' && b !== 'NB').length;
+      if (legalBalls === 6) {
+        state.previousBowler = state.selectedBowler;
+        state.selectedBowler = '';
+        state.currentOver = [];
+        state.currentStriker = state.currentStriker === 'batsman1' ? 'batsman2' : 'batsman1';
 
-    // Target reached condition
-    if (!isWicket && match.currentInnings === 2 && (battingTeam.total_score + runs) >= (match.target || 0)) {
-      inningsOver = true;
-    }
-
-    // If innings/match ends, apply completion logic and replace scoringStateClone entirely
-    if (inningsOver) {
-      const tempMatch = JSON.parse(JSON.stringify(match));
-      tempMatch[battingTeamKey].total_score += runs;
-      tempMatch[battingTeamKey].total_wickets += (isWicket ? 1 : 0);
-      handleInningsCompletion(tempMatch as IMatch);
-      scoringStateClone = tempMatch.scoringState; // may be null at match end
-    }
-
-    // --- Build atomic updateOps (no nested scoringState paths) ---
-    const updateOps: any = {
-      $push: { ballHistory: newBall },
-      $inc: {
-        [`${battingTeamKey}.total_score`]: runs,
-        [`${battingTeamKey}.total_balls`]: ballCounts ? 1 : 0,
-        [`${battingTeamKey}.extras`]: (outcome === 'WD' || outcome === 'B' || outcome === 'LB') ? runs : (outcome === 'NB' ? 1 : 0),
-        [`${bowlingTeamKey}.players.$[bowler].balls_bowled`]: ballCounts ? 1 : 0,
-        [`${bowlingTeamKey}.players.$[bowler].runs_conceded`]: (outcome === 'NB' || outcome === 'WD') ? runs : (!isExtra ? runs : 0),
-        [`${bowlingTeamKey}.players.$[bowler].wickets`]: isWicket ? 1 : 0,
-        [`${battingTeamKey}.players.$[striker].balls_played`]: ballCounts ? 1 : 0,
-        [`${battingTeamKey}.players.$[striker].runs_scored`]: !isExtra ? runs : (outcome === 'NB' ? extraRuns : 0),
-        [`${battingTeamKey}.players.$[striker].fours`]: (!isExtra && runs === 4) || (outcome === 'NB' && extraRuns === 4) ? 1 : 0,
-        [`${battingTeamKey}.players.$[striker].sixes`]: (!isExtra && runs === 6) || (outcome === 'NB' && extraRuns === 6) ? 1 : 0,
-        ...(isWicket ? { [`${battingTeamKey}.total_wickets`]: 1 } : {}),
-      },
-      $set: {
-        scoringState: scoringStateClone,
-        ...(inningsOver
-          ? {
-              status: scoringStateClone ? match.status : 'completed', // if finalizeMatch set null we already set status inside helper
-              target: match.target,
-              batting_team: inningsOver ? (match.bowling_team) : match.batting_team, // helper already swapped; but we can't rely on lean changed? optional
-              bowling_team: inningsOver ? (match.batting_team) : match.bowling_team,
-              currentInnings: inningsOver ? (match.currentInnings === 1 ? 2 : match.currentInnings) : match.currentInnings,
-            }
-          : {}),
-      },
-    };
-
-    // Clean up match-level sets for inningsOver using tempMatch (more accurate)
-    if (inningsOver) {
-      const tempMatch = JSON.parse(JSON.stringify(match));
-      tempMatch[battingTeamKey].total_score += runs;
-      tempMatch[battingTeamKey].total_wickets += (isWicket ? 1 : 0);
-      handleInningsCompletion(tempMatch as IMatch);
-      updateOps.$set.status = tempMatch.status;
-      updateOps.$set.target = tempMatch.target;
-      updateOps.$set.batting_team = tempMatch.batting_team;
-      updateOps.$set.bowling_team = tempMatch.bowling_team;
-      updateOps.$set.currentInnings = tempMatch.currentInnings;
-      updateOps.$set.scoringState = tempMatch.scoringState;
-    }
-
-    // Array filters unchanged
-    const arrayFilters = [
-      { 'bowler.name': bowlerName },
-      { 'striker.name': strikerName },
-    ];
-
-    // --- Execute atomic update ---
-    const updatedMatch = await Match.findOneAndUpdate(
-      { _id: params.id, __v: match.__v },
-      updateOps,
-      {
-        new: true,
-        arrayFilters,
+        // Check if total balls for innings is complete
+        // Note: We check >= just in case.
+        if (battingTeam.total_balls >= match.overs * 6) {
+          console.log('[Server] Overs complete!');
+          inningsOver = true;
+        }
       }
-    );
+      
+      // Condition 3: Target Reached (only check if not a wicket)
+      if (!isWicket && match.currentInnings === 2 && battingTeam.total_score >= (match.target || 0)) {
+        console.log('[Server] Target reached!');
+        inningsOver = true;
+      }
 
-    if (!updatedMatch) {
-      throw new Error('Conflict: Match was updated by another scorer. Please refresh.');
-    }
+      // Handle Innings/Match End if any condition is met
+      if (inningsOver) {
+        handleInningsCompletion(match);
+        if (match.status === 'completed') {
+            matchEnded = true;
+        }
+      }
+      
+      // --- 6. SAVE ATOMICALLY ---
+      match.markModified('teamOne');
+      match.markModified('teamTwo');
+      match.markModified('scoringState');
+      match.markModified('ballHistory');
+      
+      updatedMatch = await match.save(); // <-- REMOVED { session }
+      
+    // }); // <-- REMOVED `withTransaction` wrapper
 
     // --- 7. TRIGGER REAL-TIME EVENT ---
-    const allParticipantIds = new Set([
+    if (updatedMatch) {
+      // (Your existing Pusher logic)
+      const allParticipantIds = new Set([
         updatedMatch.createdBy.toString(),
         ...updatedMatch.admins.map((id: any) => id.toString()),
         ...updatedMatch.scorers.map((id: any) => id.toString()),
         ...updatedMatch.viewers.map((id: any) => id.toString()),
-    ]);
-    const payload = updatedMatch.toObject(); 
-    const triggers = Array.from(allParticipantIds).map(userId => {
+      ]);
+      const payload = updatedMatch.toObject(); 
+      const triggers = Array.from(allParticipantIds).map(userId => {
         const channelName = `private-user-${userId}`;
         const eventName = 'match-updated';
         return pusherServer.trigger(channelName, eventName, payload);
-    });
-    await Promise.allSettled(triggers);
-    
+      });
+      await Promise.allSettled(triggers);
+    }
+
+    // --- 8. RETURN NEW STATE ---
     return NextResponse.json({
       success: true,
       data: updatedMatch,
     });
 
   } catch (error: any) {
-    console.error(`❌ [API] /record-ball Error: ${error.message}`);
-    
-    if (error.message.startsWith('Conflict:')) {
+    // --- FIX: CATCH MongoServerError OR VersionError (for race condition) ---
+    if (error.name === 'VersionError') {
+      console.warn('[API] /record-ball VersionError: A race condition occurred.');
       return NextResponse.json(
-        { error: error.message },
-        { status: 409 }
+        { error: 'Conflict: Another scorer updated the match. Please refresh and try again.' },
+        { status: 409 } // 409 Conflict
       );
     }
     
+    // --- FIX: REMOVED `abortTransaction` ---
+    // await session.abortTransaction(); // <-- REMOVED THIS LINE
+    
+    console.error(`❌ [API] /record-ball Error: ${error.message}`);
     return NextResponse.json(
       { error: error.message || 'Failed to record ball' },
       { status: 500 }
     );
+  } finally {
+    // --- FIX: REMOVED SESSION END ---
+    // await session.endSession(); // <-- REMOVED
   }
 }

@@ -242,8 +242,8 @@ export default function ScorecardPage() {
             transition={{ delay: 0.1 }}
           >
             <ModernScorecard match={match} />
-            <ScoreCard
-              match={match} />
+            {/* <ScoreCard
+              match={match} /> */}
           </motion.div>
 
           <motion.div
