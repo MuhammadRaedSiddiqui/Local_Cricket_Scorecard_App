@@ -339,7 +339,7 @@ export default function ModernScorecard({ match, onBack, onShare }: ScoreCardPro
   const result = getMatchResult();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 md:p-8">
       {/* Header Bar */}
       {/* <div className="max-w-5xl mx-auto mb-6">
         <div className="flex items-center justify-between">
@@ -369,34 +369,34 @@ export default function ModernScorecard({ match, onBack, onShare }: ScoreCardPro
         >
           {/* Match Header */}
           <div className="p-6 md:p-8 bg-gray-50">
-            <div className="flex flex-col px-4 md:flex-row items-center justify-between gap-6">
+            <div className="flex px-4 flex-row items-center justify-between gap-6">
               {/* Team 1 */}
               <div className="flex flex-col items-center md:items-start flex-1">
-                <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
+                <h2 className="text-xl md:text-3xl font-bold text-gray-900">
                   {match.teamOne.name}
                 </h2>
-                <div className="text-3xl md:text-4xl font-black text-gray-900 mt-2">
+                <div className="text-2xl md:text-4xl font-black text-gray-900 md:mt-2">
                   {match.teamOne.total_score}/{match.teamOne.total_wickets}
                 </div>
-                <div className="text-sm text-gray-500 mt-1">
+                <div className="text-sm text-gray-500 md:mt-1">
                   ({ballsToOvers(match.teamOne.total_balls)} overs)
                 </div>
               </div>
 
               {/* VS Divider */}
               <div className="flex items-center justify-center">
-                <div className="text-xl md:text-2xl font-semibold text-gray-400 px-4">vs</div>
+                <div className="text-xl md:text-2xl font-semibold text-gray-400 md:px-4">vs</div>
               </div>
 
               {/* Team 2 */}
               <div className="flex flex-col items-center md:items-end flex-1">
-                <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
+                <h2 className="text-xl md:text-3xl font-bold text-gray-900">
                   {match.teamTwo.name}
                 </h2>
-                <div className="text-3xl md:text-4xl font-black text-gray-900 mt-2">
+                <div className="text-2xl md:text-4xl font-black text-gray-900 md:mt-2">
                   {match.teamTwo.total_score}/{match.teamTwo.total_wickets}
                 </div>
-                <div className="text-sm text-gray-500 mt-1">
+                <div className="text-sm text-gray-500 md:mt-1">
                   ({ballsToOvers(match.teamTwo.total_balls)} overs)
                 </div>
               </div>
@@ -504,7 +504,7 @@ export default function ModernScorecard({ match, onBack, onShare }: ScoreCardPro
                   </div>
                 </div>
 
-                <div className="p-6 bg-white">
+                <div className="p-2 md:p-6 bg-white">
                   <AnimatePresence mode="wait">
                     {scorecardTab === 'team1' ? (
                       <motion.div

@@ -23,7 +23,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     }
 
     // Check if user is admin
-    if (match.createdBy.toString() !== user.userId && !match.admins.includes(user.userId)) {
+    if (match.createdBy.toString() !== user.userId && !match.admins.map(id => id.toString()).includes(user.userId)) {
       return NextResponse.json({ error: 'Only match admin can start the match' }, { status: 403 });
     }
 

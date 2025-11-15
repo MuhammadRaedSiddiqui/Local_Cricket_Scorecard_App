@@ -60,7 +60,7 @@ export const ExtrasModal = ({ extraType, onConfirm, onCancel }: ExtrasModalProps
           </div>
         )}
 
-        <Button variant="outline" className="w-full" onClick={onCancel}>
+        <Button variant="secondary" className="w-full" onClick={onCancel}>
           Cancel
         </Button>
       </Card>

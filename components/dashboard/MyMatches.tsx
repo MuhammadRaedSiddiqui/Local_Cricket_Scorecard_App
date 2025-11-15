@@ -195,7 +195,20 @@ export default function MyMatches({ matches, loading, onRefresh }: MyMatchesProp
           {/* We also render the filter/refresh UI in a loading state 
               to prevent layout shift, but you could skeleton this too. */}
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-xl opacity-50">
+            {/* --- Mobile Only Select --- */}
+            <div className="sm:hidden">
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value as any)}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 border-gray-300"
+              >
+                <option value="all">All</option>
+                <option value="live">Live</option>
+                <option value="upcoming">Upcoming</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+            <div className="hidden sm:flex items-center gap-2 bg-gray-100 p-1 rounded-xl opacity-50">
               {(['all', 'live', 'upcoming', 'completed'] as const).map((status) => (
                 <button
                   key={status}

@@ -59,8 +59,8 @@ export default async function LeaderboardPage() {
   const data = await getLeaderboardData();
   return (
     <>
-      <BackButton />
-    <div className="min-h-screen bg-gray-50 p-0 md:p-8">
+    <BackButton />
+    <div className="min-h-screen bg-gray-50 p-0 md:p-8 overflow-x-hidden">
       <div className="bg-gradient-to-r from-primary-500 to-accent-600 text-white py-6 md:mb-4 md:py-12 md:px-4">       
          <div className="max-w-6xl mx-auto">
         <h1 className="text-2xl md:text-5xl font-bold mb-3 flex items-center justify-center md:justify-start gap-3">

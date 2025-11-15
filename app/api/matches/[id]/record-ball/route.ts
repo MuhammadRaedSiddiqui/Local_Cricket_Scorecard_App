@@ -120,7 +120,8 @@ export async function POST(request: NextRequest, { params }: Params) {
         match.createdBy.toString() === user.userId;
 
       if (!isAuthorized) throw new Error('Not authorized to score this match');
-      if (match.status !== 'live') throw new Error('Match is not live');
+      const currentStatus = match.status;
+      if (currentStatus !== 'live') throw new Error('Match is not live');
 
       const state = match.scoringState;
       if (!state) throw new Error('Match has not been set up for scoring.');

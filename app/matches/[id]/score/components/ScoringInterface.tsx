@@ -128,7 +128,7 @@ export function ScoringInterface({
             <Button
               onClick={() => handleBall('WD')}
               disabled={recording}
-              variant="outline"
+              variant="secondary"
               className="h-12"
             >
               Wide (+1)
@@ -136,7 +136,7 @@ export function ScoringInterface({
             <Button
               onClick={() => handleBall('NB')}
               disabled={recording}
-              variant="outline"
+              variant="secondary"
               className="h-12"
             >
               No Ball (+1)
@@ -144,7 +144,7 @@ export function ScoringInterface({
             <Button
               onClick={() => handleBall('B')}
               disabled={recording}
-              variant="outline"
+              variant="secondary"
               className="h-12"
             >
               Bye (+1)
@@ -152,7 +152,7 @@ export function ScoringInterface({
             <Button
               onClick={() => handleBall('LB')}
               disabled={recording}
-              variant="outline"
+              variant="secondary"
               className="h-12"
             >
               Leg Bye (+1)

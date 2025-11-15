@@ -6,7 +6,8 @@ import ScrollAnimation from '@/components/animations/ScrollAnimation'
 import { Clock, Users, TrendingUp } from 'lucide-react'
 
 export default function LiveMatchPreview() {
-  const [activeTeam, setActiveTeam] = useState('Australia')
+  type TeamName = 'Australia' | 'India'
+  const [activeTeam, setActiveTeam] = useState<TeamName>('Australia')
 
   const teams = {
     Australia: {
@@ -15,9 +16,10 @@ export default function LiveMatchPreview() {
         { name: 'David Warner', runs: 29, balls: 17, fours: 3, sixes: 1, strikeRate: 170.6, status: 'c Alex Carey b Josh Hazlewood' },
         { name: 'Mitchell Marsh', runs: 75, balls: 49, fours: 6, sixes: 4, strikeRate: 153.0, status: 'c Alex Carey b Josh Hazlewood' },
         { name: 'Glenn Maxwell', runs: 15, balls: 11, fours: 1, sixes: 1, strikeRate: 136.3, status: 'c Alex Carey b Josh Hazlewood' },
-        { name: 'Josh Inglis', runs: 9, balls: 13, fours: 0, sixes: 0, strikeRate: 69.2, status: 'not out' },
         { name: 'Matthew Wade', runs: 14, balls: 9, fours: 2, sixes: 0, strikeRate: 155.5, status: 'not out' },
       ],
+      yetToBat: ['Pat Cummins', 'Cameron Green', 'Marcus Stoinis', 'Ashton Agar'],
+      
       bowling: [
         { name: 'Mitchell Starc', overs: 5.0, maidens: 0, runs: 31, wickets: 0, economy: 6.2 },
         { name: 'Josh Hazlewood', overs: 6.0, maidens: 1, runs: 23, wickets: 1, economy: 3.83 },
@@ -30,10 +32,9 @@ export default function LiveMatchPreview() {
         { name: 'Rohit Sharma', runs: 61, balls: 43, fours: 7, sixes: 2, strikeRate: 141.8, status: 'b Adam Zampa' },
         { name: 'Shubman Gill', runs: 35, balls: 27, fours: 4, sixes: 1, strikeRate: 129.6, status: 'c Glenn Maxwell b Josh Hazlewood' },
         { name: 'Virat Kohli', runs: 48, balls: 38, fours: 5, sixes: 0, strikeRate: 126.3, status: 'b Nathan Ellis' },
-        { name: 'Suryakumar Yadav', runs: 24, balls: 15, fours: 2, sixes: 1, strikeRate: 160.0, status: 'c Josh Inglis b Starc' },
-        { name: 'Hardik Pandya', runs: 10, balls: 9, fours: 1, sixes: 0, strikeRate: 111.1, status: 'not out' },
         { name: 'Ravindra Jadeja', runs: 7, balls: 8, fours: 0, sixes: 0, strikeRate: 87.5, status: 'not out' },
       ],
+      yetToBat: ['KL Rahul', 'Shreyas Iyer', 'Rishabh Pant', 'Shardul Thakur'],
       bowling: [
         { name: 'Mohammed Siraj', overs: 5.0, maidens: 0, runs: 36, wickets: 1, economy: 7.2 },
         { name: 'Jasprit Bumrah', overs: 6.0, maidens: 1, runs: 21, wickets: 2, economy: 3.5 },
@@ -206,7 +207,7 @@ export default function LiveMatchPreview() {
              {/* Tabs */}
             <div className="flex justify-center mb-8">
               <div className="bg-gray-100 rounded-lg p-1 flex space-x-1 max-w-xs w-full mx-4">
-                {['Australia', 'India'].map((team) => (
+                {(['Australia', 'India'] as const).map((team) => (
                   <button
                     key={team}
                     onClick={() => setActiveTeam(team)}
@@ -239,7 +240,15 @@ export default function LiveMatchPreview() {
                       </tr>
                     </thead>
                     <tbody>
-                      {batting.map((b) => (
+                        {batting.map((b: {
+                        name: string;
+                        runs: number;
+                        balls: number;
+                        fours: number;
+                        sixes: number;
+                        strikeRate: number;
+                        status: string;
+                        }) => (
                         <tr key={b.name} className="border-b hover:bg-gray-50 transition">
                           <td className="py-3 px-4 font-medium text-gray-800">{b.name}</td>
                           <td className="py-3 px-4 text-gray-600">{b.status}</td>
@@ -259,14 +268,14 @@ export default function LiveMatchPreview() {
                   <div className="mb-12 bg-gray-50 rounded-xl p-4">
                     <p className="text-xs text-gray-600 uppercase tracking-wider mb-2">Yet to Bat</p>
                     <div className="flex flex-wrap gap-3 text-sm text-gray-800">
-                      {yetToBat.slice(0, 4).map((player) => (
+                        {(yetToBat as string[]).slice(0, 4).map((player: string) => (
                         <span
                           key={player}
                           className="px-3 py-1 bg-white border border-gray-200 rounded-lg shadow-sm"
                         >
                           {player}
                         </span>
-                      ))}
+                        ))}
                     </div>
                   </div>
                 )}

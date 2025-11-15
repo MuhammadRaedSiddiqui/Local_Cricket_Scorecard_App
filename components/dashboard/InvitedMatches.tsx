@@ -202,7 +202,7 @@ export default function InvitedMatches({ matches = [], loading, onRefresh }: Inv
 
             {/* Refresh Button */}
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={onRefresh}
               className="gap-2"

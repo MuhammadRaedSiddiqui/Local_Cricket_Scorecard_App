@@ -46,7 +46,7 @@ export const ScoringControls = ({
           <Button
             onClick={onUndo}
             disabled={!canUndo}
-            variant="outline"
+            variant="secondary"
             size="sm"
             className="flex items-center gap-2"
           >
@@ -88,28 +88,28 @@ export const ScoringControls = ({
           <div className="grid grid-cols-4 gap-2">
             <Button
               onClick={() => handleExtraClick('WD')}
-              variant="outline"
+              variant="secondary"
               className="h-12"
             >
               Wide
             </Button>
             <Button
               onClick={() => handleExtraClick('NB')}
-              variant="outline"
+              variant="secondary"
               className="h-12"
             >
               No Ball
             </Button>
             <Button
               onClick={() => handleExtraClick('B')}
-              variant="outline"
+              variant="secondary"
               className="h-12"
             >
               Bye
             </Button>
             <Button
               onClick={() => handleExtraClick('LB')}
-              variant="outline"
+              variant="secondary"
               className="h-12"
             >
               Leg Bye

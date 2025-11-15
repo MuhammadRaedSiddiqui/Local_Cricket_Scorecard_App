@@ -232,7 +232,7 @@ return (
   <>
     <Toaster position="top-center" />
 
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 overflow-x-hidden">
       {/* Header */}
       <div className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -262,7 +262,7 @@ return (
         />
       </div>
 
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
+      <div className="container mx-auto px-2 md:px-4 py-8 max-w-2xl">
         <AnimatePresence mode="wait">
           {/* Step 1: Match Details */}
           {step === 1 && (
@@ -365,14 +365,14 @@ return (
               exit={{ opacity: 0, x: -20 }}
               className="space-y-6"
             >
-              <Card className="p-6">
+              <Card className="p-3 md:p-6">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl">
                     <Users className="h-6 w-6" />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Team 1 Setup</h2>
-                    <p className="text-gray-600">Add team name and players</p>
+                    <h2 className="text-lg md:text-2xl font-bold text-gray-900">Team 1 Setup</h2>
+                    <p className="text-sm md:text-xs text-gray-600">Add team name and players</p>
                   </div>
                 </div>
 
@@ -457,7 +457,7 @@ return (
                       </div>
                     ))}
                     {team1.players.length === 0 && (
-                      <p className="text-center text-gray-500 py-4">No players added yet</p>
+                      <p className="text-sm md:text-xs text-center text-gray-500 py-4">No players added yet</p>
                     )}
                   </div>
                 </div>
@@ -498,8 +498,8 @@ return (
                     <Users className="h-6 w-6" />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Team 2 Setup</h2>
-                    <p className="text-gray-600">Add team name and players</p>
+                    <h2 className="text-lg md:text-2xl font-bold text-gray-900">Team 2 Setup</h2>
+                    <p className="text-sm md:text-xs text-gray-600">Add team name and players</p>
                   </div>
                 </div>
 

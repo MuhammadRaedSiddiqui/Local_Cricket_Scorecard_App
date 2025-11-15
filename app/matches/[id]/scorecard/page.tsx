@@ -137,7 +137,7 @@ export default function ScorecardPage() {
     <>
       <Toaster position="top-center" />
 
-      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50">
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 overflow-x-hidden">
         {/* Header */}
         <div className="bg-white border-b sticky top-0 z-10 print:hidden shadow-sm">
           <div className="container mx-auto px-4 py-4">
@@ -174,7 +174,7 @@ export default function ScorecardPage() {
           </div>
         </div>
 
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="container mx-auto px-2 py-4 md:px-4 md:py-8 max-w-6xl">
          
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -187,7 +187,7 @@ export default function ScorecardPage() {
                   <div className="flex items-center gap-3 mb-3">
                     <Trophy className="h-8 w-8" />
                     <div>
-                      <h1 className="text-2xl font-bold">
+                      <h1 className="text-xl md:text-2xl font-bold">
                         {match.teamOne.name} vs {match.teamTwo.name}
                       </h1>
                       {match.status === 'completed' && (
@@ -201,7 +201,7 @@ export default function ScorecardPage() {
                  
                   {match.status === 'completed' && (
                     <div className="bg-white/20 rounded-lg p-3 mt-4">
-                      <p className="text-xl font-bold">
+                      <p className="text-lg md:text-xl font-bold">
                         🏆 {getMatchResult()}
                       </p>
                     </div>
@@ -252,7 +252,7 @@ export default function ScorecardPage() {
             transition={{ delay: 0.2 }}
             className="mt-8 print:hidden"
           >
-            <Card className="p-6">
+            <Card className="p-4 md:p-6">
               <div className="text-center">
                 <p className="text-sm text-gray-600 mb-4">
                   Share this scorecard with friends using the match code
@@ -275,7 +275,7 @@ export default function ScorecardPage() {
                   </Button>
                 </div>
 
-                <div className="mt-4 flex justify-center gap-3">
+                <div className="mt-4 flex flex-col md:flex-row justify-center gap-3">
                   <Button
                     variant="secondary"
                     onClick={handleShare}

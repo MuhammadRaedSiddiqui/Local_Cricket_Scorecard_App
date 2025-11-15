@@ -231,12 +231,7 @@ export default function ScoringPage() {
           {/* State 2: Scoring (and its sub-states) */}
           {state === 'SCORING' && battingTeam && bowlingTeam && scoringState && (
             <Fragment>
-              {/* <ScoreDisplay
-                battingTeam={battingTeam}
-                bowlingTeam={bowlingTeam}
-                currentInnings={scoringState.currentInnings}
-                match={match}
-              /> */}
+             
 
               {/* Sub-State: Start of Innings */}
               {needsFirstPlayerSelection && (
@@ -271,15 +266,9 @@ export default function ScoringPage() {
               {/* Sub-State: Ready to score */}
               {showScoringControls && (
                 <>
-                  {/* <CurrentPlayers
-                    batsman1={scoringState.selectedBatsman1}
-                    batsman2={scoringState.selectedBatsman2}
-                    bowler={scoringState.selectedBowler}
-                    striker={scoringState.currentStriker}
-                  />
-                  <CurrentOver balls={scoringState.currentOver} /> */}
+                  
                   <CompactMatchStatus
-                    match={match}
+                    match={{ ...match, currentInnings: match.currentInnings ?? currentInnings ?? 1 } as typeof match & { currentInnings: number }}
                     battingTeam={battingTeam}
                     bowlingTeam={bowlingTeam}
                     batsman1={selectedBatsman1}
@@ -288,13 +277,13 @@ export default function ScoringPage() {
                     bowler={selectedBowler}
                     currentInnings={currentInnings}
                     currentOver={currentOver}
-                    prevbowler={previousBowler}
+                    previousBowler={previousBowler}
                   />
                   <ScoringControls
                     onBallRecorded={recordBall}
                     onUndo={() => toast.error("Undo not implemented yet")}
                     canUndo={false}
-                    disabled={isSubmitting} // Pass down loading state
+                    disabled={isSubmitting} 
                   />
                 </>
               )}

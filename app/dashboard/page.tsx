@@ -250,7 +250,7 @@ export default function DashboardPage() {
   return (
     <>
       <Toaster position="top-right" />
-      <div className="min-h-screen bg-gradient-to-br from-green-50/30 via-white to-emerald-50/20">
+      <div className="min-h-screen bg-gradient-to-br from-green-50/30 via-white to-emerald-50/20 overflow-x-hidden">
         <Navbar user={user} onLogout={handleLogout} />
 
         <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-7xl">
