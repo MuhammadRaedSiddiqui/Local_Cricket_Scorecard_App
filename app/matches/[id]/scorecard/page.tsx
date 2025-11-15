@@ -60,24 +60,36 @@ export default function ScorecardPage() {
   const getMatchResult = () => {
     if (!match || match.status !== 'completed') return null
 
+    // Limited-overs style chase logic
     if (match.target && match.currentInnings === 2) {
-      const battingTeam = match.batting_team === match.teamOne.name ? match.teamOne : match.teamTwo
-      const bowlingTeam = match.bowling_team === match.teamOne.name ? match.teamOne : match.teamTwo
+      const battingTeam =
+        match.batting_team === match.teamOne.name ? match.teamOne : match.teamTwo
+      const bowlingTeam =
+        match.bowling_team === match.teamOne.name ? match.teamOne : match.teamTwo
+
+      // Tie in a chase
+      if (battingTeam.total_score === match.target - 1) {
+        return 'Match Tied'
+      }
 
       if (battingTeam.total_score >= match.target) {
         const wicketsLeft = 10 - battingTeam.total_wickets
-        return `${match.batting_team} won by ${wicketsLeft} wickets`
+        return `${match.batting_team} won by ${wicketsLeft} wicket${wicketsLeft === 1 ? '' : 's'
+          }`
       } else {
         const runsDiff = match.target - 1 - battingTeam.total_score
-        return `${match.bowling_team} won by ${runsDiff} runs`
+        return `${match.bowling_team} won by ${runsDiff} run${runsDiff === 1 ? '' : 's'
+          }`
       }
     }
 
-    // First innings only or draw
+    // First innings only or non-target scenario
     if (match.teamOne.total_score > match.teamTwo.total_score) {
-      return `${match.teamOne.name} won by ${match.teamOne.total_score - match.teamTwo.total_score} runs`
+      const diff = match.teamOne.total_score - match.teamTwo.total_score
+      return `${match.teamOne.name} won by ${diff} run${diff === 1 ? '' : 's'}`
     } else if (match.teamTwo.total_score > match.teamOne.total_score) {
-      return `${match.teamTwo.name} won by ${match.teamTwo.total_score - match.teamOne.total_score} runs`
+      const diff = match.teamTwo.total_score - match.teamOne.total_score
+      return `${match.teamTwo.name} won by ${diff} run${diff === 1 ? '' : 's'}`
     }
 
     return 'Match Tied'
@@ -175,7 +187,7 @@ export default function ScorecardPage() {
         </div>
 
         <div className="container mx-auto px-2 py-4 md:px-4 md:py-8 max-w-6xl">
-         
+
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -198,7 +210,7 @@ export default function ScorecardPage() {
                     </div>
                   </div>
 
-                 
+
                   {match.status === 'completed' && (
                     <div className="bg-white/20 rounded-lg p-3 mt-4">
                       <p className="text-lg md:text-xl font-bold">
@@ -224,7 +236,7 @@ export default function ScorecardPage() {
                 </div>
               </div>
 
-              
+
               {match.toss_winner && (
                 <div className="mt-4 pt-4 border-t border-white/20">
                   <p className="text-sm text-green-100">
@@ -235,7 +247,7 @@ export default function ScorecardPage() {
             </Card>
           </motion.div>
 
-          
+
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
