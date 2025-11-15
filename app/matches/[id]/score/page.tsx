@@ -17,9 +17,10 @@ import { ScoreDisplay } from './components/ScoreDisplay';
 import { CurrentPlayers } from './components/CurrentPlayers';
 import { CurrentOver } from './components/CurrentOver';
 
-import { useMatchScoring ,initialScoringState} from '@/hooks/useMatchScoring';
+import { useMatchScoring, initialScoringState } from '@/hooks/useMatchScoring';
 import { Match, Player, ScoringState } from '@/types/match'; // Import types
 import { IScoringState } from '@/models/Match';
+import CompactMatchStatus from './components/CompactMatchStatus';
 
 type MatchState = 'LOADING' | 'TOSS' | 'SCORING' | 'ERROR';
 
@@ -75,7 +76,7 @@ export default function ScoringPage() {
       status: 'live',
       currentInnings: 1,
       // Reset scoring state
-      scoringState: { ...initialScoringState, currentInnings: 1 } as IScoringState 
+      scoringState: { ...initialScoringState, currentInnings: 1 } as IScoringState
     });
   };
 
@@ -119,36 +120,36 @@ export default function ScoringPage() {
 
 
   // --- 3. ROBUST RENDER LOGIC ---
-  
+
   // These booleans determine which sub-component to show *within* the SCORING state
   const stateExists = state === 'SCORING' && scoringState;
-  
+
   // Start of innings: No batsmen selected AND no one is out.
-  const needsFirstPlayerSelection = 
-       stateExists && 
-       !scoringState.selectedBatsman1 && 
-       !scoringState.selectedBatsman2 && 
-       scoringState.outBatsmen.length === 0;
+  const needsFirstPlayerSelection =
+    stateExists &&
+    !scoringState.selectedBatsman1 &&
+    !scoringState.selectedBatsman2 &&
+    scoringState.outBatsmen.length === 0;
 
   // Wicket fell: One of the batsman slots is empty, AND it's not the start of the innings.
-  const needsBatsmanChange = 
-       stateExists && 
-       (!scoringState.selectedBatsman1 || !scoringState.selectedBatsman2) &&
-       !needsFirstPlayerSelection;
+  const needsBatsmanChange =
+    stateExists &&
+    (!scoringState.selectedBatsman1 || !scoringState.selectedBatsman2) &&
+    !needsFirstPlayerSelection;
 
   // Over ended: Batsman slots are full, but the bowler slot is empty.
-  const needsBowlerChange = 
-       stateExists && 
-       !needsFirstPlayerSelection &&
-       !needsBatsmanChange &&
-       !scoringState.selectedBowler;
+  const needsBowlerChange =
+    stateExists &&
+    !needsFirstPlayerSelection &&
+    !needsBatsmanChange &&
+    !scoringState.selectedBowler;
 
   // Ready to score: All slots are full.
-  const showScoringControls = 
-       stateExists &&
-       !needsFirstPlayerSelection &&
-       !needsBatsmanChange &&
-       !needsBowlerChange;
+  const showScoringControls =
+    stateExists &&
+    !needsFirstPlayerSelection &&
+    !needsBatsmanChange &&
+    !needsBowlerChange;
 
   const getAvailableBatsmen = (): Player[] => {
     if (!battingTeam || !scoringState) return [];
@@ -160,8 +161,10 @@ export default function ScoringPage() {
     });
   };
 
+  const {selectedBatsman1,selectedBatsman2,selectedBowler,previousBowler,currentInnings,currentOver,currentStriker}=scoringState
+
   // --- RENDER ---
-  
+
   if (state === 'LOADING') {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -206,16 +209,16 @@ export default function ScoringPage() {
                     <Circle className="h-3 w-3 fill-current animate-pulse" /> LIVE
                   </div>
                 )}
-                <Button size="sm" variant="secondary" onClick={() => logger.downloadLogs()}>
+                {/* <Button size="sm" variant="secondary" onClick={() => logger.downloadLogs()}>
                   <Download className="h-4 w-4" />
-                </Button>
+                </Button> */}
               </div>
             </div>
           </div>
         </div>
 
         <div className="container mx-auto px-4 py-6 max-w-4xl">
-          
+
           {/* State 1: Toss */}
           {state === 'TOSS' && (
             <TossForm
@@ -228,13 +231,13 @@ export default function ScoringPage() {
           {/* State 2: Scoring (and its sub-states) */}
           {state === 'SCORING' && battingTeam && bowlingTeam && scoringState && (
             <Fragment>
-              <ScoreDisplay
+              {/* <ScoreDisplay
                 battingTeam={battingTeam}
                 bowlingTeam={bowlingTeam}
                 currentInnings={scoringState.currentInnings}
                 match={match}
-              />
-              
+              /> */}
+
               {/* Sub-State: Start of Innings */}
               {needsFirstPlayerSelection && (
                 <PlayerSelectionForm
@@ -245,7 +248,7 @@ export default function ScoringPage() {
                   onPlayersSelected={handlePlayersSelected}
                 />
               )}
-              
+
               {/* Sub-State: Wicket fell, need new batsman */}
               {needsBatsmanChange && (
                 <BatsmanChangeForm
@@ -254,7 +257,7 @@ export default function ScoringPage() {
                   onBatsmanSelected={handleBatsmanChange}
                 />
               )}
-              
+
               {/* Sub-State: Over ended, need new bowler */}
               {needsBowlerChange && (
                 <BowlerSelection
@@ -264,17 +267,29 @@ export default function ScoringPage() {
                   reason="over"
                 />
               )}
-              
+
               {/* Sub-State: Ready to score */}
               {showScoringControls && (
                 <>
-                  <CurrentPlayers
+                  {/* <CurrentPlayers
                     batsman1={scoringState.selectedBatsman1}
                     batsman2={scoringState.selectedBatsman2}
                     bowler={scoringState.selectedBowler}
                     striker={scoringState.currentStriker}
                   />
-                  <CurrentOver balls={scoringState.currentOver} />
+                  <CurrentOver balls={scoringState.currentOver} /> */}
+                  <CompactMatchStatus
+                    match={match}
+                    battingTeam={battingTeam}
+                    bowlingTeam={bowlingTeam}
+                    batsman1={selectedBatsman1}
+                    batsman2={selectedBatsman2}
+                    striker={currentStriker}
+                    bowler={selectedBowler}
+                    currentInnings={currentInnings}
+                    currentOver={currentOver}
+                    prevbowler={previousBowler}
+                  />
                   <ScoringControls
                     onBallRecorded={recordBall}
                     onUndo={() => toast.error("Undo not implemented yet")}

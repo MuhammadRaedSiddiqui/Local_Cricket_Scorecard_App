@@ -76,7 +76,7 @@ export const ScoringControls = ({
           ))}
           <Button
             onClick={() => onBallRecorded('W', 0)} // ✅ Pass 0 for wicket
-            className="h-14 text-lg font-bold !bg-red-500 hover:!bg-red-600"
+            className="h-14 text-lg !bg-red-500 hover:!bg-red-600 font-bold"
           >
             W
           </Button>
