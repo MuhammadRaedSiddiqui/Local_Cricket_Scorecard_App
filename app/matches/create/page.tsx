@@ -344,17 +344,33 @@ export default function CreateMatchPage() {
                           </label>
                           <input
                             type="number"
-                            value={matchData.overs}
+                            // This is the fix: Show an empty string if overs is 0
+                            value={matchData.overs === 0 ? '' : matchData.overs}
                             onChange={(e) => {
-                              // This validation logic is from the previous step
-                              const num = parseInt(e.target.value);
-                              let finalOvers = 1;
-                              if (num > 99) {
-                                finalOvers = 99;
-                              } else if (num >= 1) {
-                                finalOvers = num;
+                              const val = e.target.value;
+
+                              // If the input is empty, set state to 0
+                              if (val === '') {
+                                setMatchData({ ...matchData, overs: 0 });
+                                return;
                               }
-                              setMatchData({ ...matchData, overs: finalOvers });
+
+                              const num = parseInt(val);
+
+                              // If not a number (e.g., "1e"), just ignore the keypress
+                              if (isNaN(num)) {
+                                return;
+                              }
+
+                              // We have a valid number, now just clamp it
+                              if (num > 99) {
+                                setMatchData({ ...matchData, overs: 99 });
+                              } else if (num < 0) {
+                                setMatchData({ ...matchData, overs: 0 });
+                              } else {
+                                // This is the correct way, no concatenation!
+                                setMatchData({ ...matchData, overs: num });
+                              }
                             }}
                             placeholder="e.g., 12"
                             className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"

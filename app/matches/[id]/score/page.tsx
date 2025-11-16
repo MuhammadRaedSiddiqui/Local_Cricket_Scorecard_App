@@ -41,6 +41,9 @@ export default function ScoringPage() {
     recordBall,
     saveFullState,
     isStateRestored,
+    undoLastBall,
+    canUndo,
+    isUndoing,
   } = useMatchScoring(matchId);
 
   // Initial fetch
@@ -161,7 +164,7 @@ export default function ScoringPage() {
     });
   };
 
-  const {selectedBatsman1,selectedBatsman2,selectedBowler,previousBowler,currentInnings,currentOver,currentStriker}=scoringState
+  const { selectedBatsman1, selectedBatsman2, selectedBowler, previousBowler, currentInnings, currentOver, currentStriker } = scoringState
 
   // --- RENDER ---
 
@@ -231,7 +234,7 @@ export default function ScoringPage() {
           {/* State 2: Scoring (and its sub-states) */}
           {state === 'SCORING' && battingTeam && bowlingTeam && scoringState && (
             <Fragment>
-             
+
 
               {/* Sub-State: Start of Innings */}
               {needsFirstPlayerSelection && (
@@ -266,7 +269,7 @@ export default function ScoringPage() {
               {/* Sub-State: Ready to score */}
               {showScoringControls && (
                 <>
-                  
+
                   <CompactMatchStatus
                     match={{ ...match, currentInnings: match.currentInnings ?? currentInnings ?? 1 } as typeof match & { currentInnings: number }}
                     battingTeam={battingTeam}
@@ -281,9 +284,9 @@ export default function ScoringPage() {
                   />
                   <ScoringControls
                     onBallRecorded={recordBall}
-                    onUndo={() => toast.error("Undo not implemented yet")}
-                    canUndo={false}
-                    disabled={isSubmitting} 
+                    onUndo={undoLastBall}
+                    canUndo={canUndo}
+                    disabled={isSubmitting || isUndoing}
                   />
                 </>
               )}

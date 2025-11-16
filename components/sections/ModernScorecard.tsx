@@ -295,30 +295,62 @@ export default function ModernScorecard({ match, onBack, onShare }: ScoreCardPro
     );
   }
 
+  ////typescript
+// filepath: c:\Users\HP\OneDrive\Desktop\Cricket_App\Local_Cricket_Scorecard_App\components\sections\ModernScorecard.tsx
+// ...existing code...
+
   const getMatchResult = () => {
-    if (!match || match.status !== 'completed') return null;
+    if (!match || match.status !== 'completed') return null
 
+    const teamOneRuns = match.teamOne.total_score
+    const teamTwoRuns = match.teamTwo.total_score
+
+    // Chase logic – 2nd innings with a target
     if (match.target && match.currentInnings === 2) {
-      const battingTeam = match.batting_team === match.teamOne.name ? match.teamOne : match.teamTwo;
-      const bowlingTeam = match.bowling_team === match.teamOne.name ? match.teamOne : match.teamTwo;
+      const battingTeam =
+        match.batting_team === match.teamOne.name ? match.teamOne : match.teamTwo
+      const bowlingTeam =
+        match.bowling_team === match.teamOne.name ? match.teamOne : match.teamTwo
 
-      if (battingTeam.total_score >= match.target) {
-        const wicketsLeft = 10 - battingTeam.total_wickets;
-        return `${match.batting_team} won by ${wicketsLeft} wickets`;
-      } else {
-        const runsDiff = match.target - 1 - battingTeam.total_score;
-        return `${match.bowling_team} won by ${runsDiff} runs`;
+      const target = match.target
+      const chasingScore = battingTeam.total_score
+
+      // In your app, target appears to be "runs to win + 1"
+      // so tie when chasingScore === target - 1
+      if (chasingScore === target - 1) {
+        return 'Match Tied'
       }
+
+      // Chasing side wins
+      if (chasingScore >= target) {
+        const wicketsLeft = 10 - battingTeam.total_wickets
+        return `${match.batting_team} won by ${wicketsLeft} wicket${
+          wicketsLeft === 1 ? '' : 's'
+        }`
+      }
+
+      // Bowling side wins
+      const runsDiff = target - 1 - chasingScore
+      return `${match.bowling_team} won by ${runsDiff} run${
+        runsDiff === 1 ? '' : 's'
+      }`
     }
 
-    if (match.teamOne.total_score > match.teamTwo.total_score) {
-      return `${match.teamOne.name} won by ${match.teamOne.total_score - match.teamTwo.total_score} runs`;
-    } else if (match.teamTwo.total_score > match.teamOne.total_score) {
-      return `${match.teamTwo.name} won by ${match.teamTwo.total_score - match.teamOne.total_score} runs`;
+    // Non‑chase / both innings completed
+    if (teamOneRuns === teamTwoRuns) {
+      return 'Match Tied'
     }
 
-    return 'Match Tied';
-  };
+    if (teamOneRuns > teamTwoRuns) {
+      const diff = teamOneRuns - teamTwoRuns
+      return `${match.teamOne.name} won by ${diff} run${diff === 1 ? '' : 's'}`
+    } else {
+      const diff = teamTwoRuns - teamOneRuns
+      return `${match.teamTwo.name} won by ${diff} run${diff === 1 ? '' : 's'}`
+    }
+  }
+
+// ...existing code...
 
   const handleShare = () => {
     const result = getMatchResult();

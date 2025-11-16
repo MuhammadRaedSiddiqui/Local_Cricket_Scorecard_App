@@ -72,9 +72,16 @@ export default function CompactMatchStatus({
         );
     }
 
-    const runsNeeded = match.target ? Math.max(0, match.target - battingTeam.total_score) : 0;
+    const runsNeededRaw = match.target ? Math.max(0, match.target - battingTeam.total_score) : 0;
     const ballsRemaining = (match.overs * 6) - battingTeam.total_balls;
-
+    const runsNeeded = Math.max(0, runsNeededRaw)
+    const isChase = currentInnings === 2 && !!match.target
+    const needText =
+        isChase && ballsRemaining >= 0
+            ? runsNeeded === 0
+                ? 'Scores level'
+                : `Need ${runsNeeded} run${runsNeeded === 1 ? '' : 's'} from ${ballsRemaining} ball${ballsRemaining === 1 ? '' : 's'}`
+            : null
     return (
         <div className="bg-gray-50 rounded-xl shadow-md border border-gray-200 overflow-hidden mb-4">
             {/* Score Header */}
@@ -97,18 +104,7 @@ export default function CompactMatchStatus({
                         </div>
                     </div>
 
-                    {/* VS or Target */}
-                    <div className="px-3 text-center">
-                        {currentInnings === 2 && match.target ? (
-                            <div className="bg-green-50 rounded-lg px-3 py-2 border border-green-200">
-                                <div className="text-xs text-gray-500">Need</div>
-                                <div className="text-xl font-black text-green-600">{runsNeeded}</div>
-                                <div className="text-xs text-gray-500">{ballsRemaining}b</div>
-                            </div>
-                        ) : (
-                            <div className="text-xl font-semibold text-gray-400">vs</div>
-                        )}
-                    </div>
+
 
                     {/* Bowling Team */}
                     <div className="flex-1 text-right">
@@ -123,6 +119,31 @@ export default function CompactMatchStatus({
                     </div>
                 </div>
             </div>
+
+
+            <div className="w-full flex flex-col items-center justify-center">
+                {isChase ? (
+                    <div className="w-full bg-green-50 rounded-lg px-3 py-2 border border-green-200 text-center">
+                        <div className="flex items-center justify-center gap-1 mb-1 text-xs text-gray-500">
+                            <Target className="w-3 h-3" />
+                            <span>Target</span>
+                        </div>
+                        <div className="text-lg font-bold text-green-700">
+                            {match.target}
+                        </div>
+                        {needText && (
+                            <div className="mt-1 text-[11px] text-green-700 font-medium leading-tight">
+                                {needText}
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="text-xl font-semibold text-gray-400"></div>
+                )}
+            </div>
+
+
+
 
             {/* Current Players */}
             <div className="bg-white px-4 py-3 border-b border-gray-200">
@@ -189,7 +210,7 @@ export default function CompactMatchStatus({
                             {/* Previous Bowler */}
                             {previousBowler && (
                                 <div className="flex items-baseline justify-end gap-1 pr-3">
-                                    <span className="font-medium text-gray-700">:{previousBowler}</span>
+                                    <span className="font-medium text-gray-700">{previousBowler}</span>
                                     <span className="text-gray-600">
                                         {(() => {
                                             const prevBowlerPlayer = bowlingTeam.players.find(p => p.name === previousBowler);

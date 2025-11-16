@@ -9,7 +9,7 @@ interface CurrentOverProps {
 const getBallClass = (ball: string) => {
   if (ball === 'W') return 'bg-red-500'
   if (ball === '4') return 'bg-blue-500'
-  if (ball === '6') return 'bg-purple-500'
+  if (ball === '6') return 'bg-orange-500'
   if (ball === 'WD' || ball === 'NB') return 'bg-yellow-500'
   return 'bg-gray-400'
 }

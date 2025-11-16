@@ -57,6 +57,9 @@ export default function ScorecardPage() {
     }
   }
 
+
+ // ...existing code...
+
   const getMatchResult = () => {
     if (!match || match.status !== 'completed') return null
 
@@ -74,12 +77,14 @@ export default function ScorecardPage() {
 
       if (battingTeam.total_score >= match.target) {
         const wicketsLeft = 10 - battingTeam.total_wickets
-        return `${match.batting_team} won by ${wicketsLeft} wicket${wicketsLeft === 1 ? '' : 's'
-          }`
+        return `${match.batting_team} won by ${wicketsLeft} wicket${
+          wicketsLeft === 1 ? '' : 's'
+        }`
       } else {
         const runsDiff = match.target - 1 - battingTeam.total_score
-        return `${match.bowling_team} won by ${runsDiff} run${runsDiff === 1 ? '' : 's'
-          }`
+        return `${match.bowling_team} won by ${runsDiff} run${
+          runsDiff === 1 ? '' : 's'
+        }`
       }
     }
 
@@ -94,6 +99,8 @@ export default function ScorecardPage() {
 
     return 'Match Tied'
   }
+
+// ...existing code...
 
   const handleShare = () => {
     const result = getMatchResult()
