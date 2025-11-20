@@ -1,24 +1,20 @@
-// FILE: app/matches/[id]/score/page.tsx (SIMPLIFIED & CORRECTED)
 'use client'
 
 import { useEffect, Fragment } from 'react'; // Import Fragment
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Circle, Download } from 'lucide-react';
-import toast, { Toaster } from 'react-hot-toast';
+import { ArrowLeft, Circle } from 'lucide-react';
+import { Toaster } from 'react-hot-toast';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { logger } from '@/utils/debugLogger';
 import { TossForm } from './components/TossForm';
 import { PlayerSelectionForm } from './components/PlayerSelectionForm';
 import { ScoringControls } from './components/ScoringControls';
 import { BatsmanChangeForm } from './components/BatsmanSelectionForm';
 import { BowlerSelection } from './components/BowlerSelection';
-import { ScoreDisplay } from './components/ScoreDisplay';
-import { CurrentPlayers } from './components/CurrentPlayers';
-import { CurrentOver } from './components/CurrentOver';
+
 
 import { useMatchScoring, initialScoringState } from '@/hooks/useMatchScoring';
-import { Match, Player, ScoringState } from '@/types/match'; // Import types
+import { Match, Player } from '@/types/match'; // Import types
 import { IScoringState } from '@/models/Match';
 import CompactMatchStatus from './components/CompactMatchStatus';
 
@@ -285,7 +281,7 @@ export default function ScoringPage() {
                   <ScoringControls
                     onBallRecorded={recordBall}
                     onUndo={undoLastBall}
-                    canUndo={canUndo}
+                    canUndo={!!canUndo}
                     disabled={isSubmitting || isUndoing}
                   />
                 </>
