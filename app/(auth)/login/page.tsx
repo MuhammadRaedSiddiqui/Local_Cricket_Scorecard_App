@@ -25,8 +25,9 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      })
+        body: JSON.stringify(formData),
+        credentials: 'include', // Important: include cookies
+      });
 
       const data = await res.json()
 
@@ -43,7 +44,9 @@ export default function LoginPage() {
       // Redirect to dashboard
       console.log('Redirecting to dashboard...')
 
-      router.push('/dashboard')
+      setTimeout(() => {
+        router.push('/dashboard')
+      }, (1000));
 
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Login failed')

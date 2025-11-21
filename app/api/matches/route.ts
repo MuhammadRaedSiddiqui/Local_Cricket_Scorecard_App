@@ -17,14 +17,14 @@ export async function GET(request: NextRequest) {
     await connectDB();
 
     // Matches created by user
-    const createdMatches = await Match.find({ 
-      createdBy: user.userId 
+    const createdMatches = await Match.find({
+      createdBy: user.userId
     })
-    .sort({ createdAt: -1 })
-    .lean();
-    
+      .sort({ createdAt: -1 })
+      .lean();
+
     // Matches where user is invited (admin, scorer, or viewer)
-    const invitedMatches = await Match.find({ 
+    const invitedMatches = await Match.find({
       $and: [
         { createdBy: { $ne: user.userId } },
         {
@@ -36,8 +36,8 @@ export async function GET(request: NextRequest) {
         }
       ]
     })
-    .sort({ createdAt: -1 })
-    .lean();
+      .sort({ createdAt: -1 })
+      .lean();
 
     // Format matches for easier display
     const formatMatch = (match: any) => {
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     }
 
     await connectDB();
-    
+
     const matchData = await request.json();
 
     // Create match with generated code

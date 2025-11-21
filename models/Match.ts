@@ -200,6 +200,14 @@ const matchSchema = new mongoose.Schema(
   }
 )
 
+matchSchema.index({ createdBy: 1 })
+matchSchema.index({ status: 1 })
+matchSchema.index({ matchCode: 1 })
+matchSchema.index({ admins: 1 })
+matchSchema.index({ scorers: 1 })
+matchSchema.index({ viewers: 1 })
+matchSchema.index({ createdAt: -1 })
+
 // ✅ Clear cached model
 if (mongoose.models.Match) {
   delete mongoose.models.Match

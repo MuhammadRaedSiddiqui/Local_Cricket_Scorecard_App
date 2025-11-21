@@ -65,7 +65,7 @@ export default function DashboardPage() {
     totalMatches: 0,
     liveMatches: 0,
   });
-  
+
   // These are now derived from the 'data' state
   const { user, myMatches, invitedMatches, totalMatches, liveMatches } = data;
 
@@ -89,7 +89,7 @@ export default function DashboardPage() {
         if (parsedUser._id && !parsedUser.id) {
           parsedUser.id = parsedUser._id;
         }
-        
+
         // --- 2. FIX: Set user in the *single* state object ---
         setData(prevData => ({ ...prevData, user: parsedUser }));
         setLoading(false);
@@ -151,7 +151,7 @@ export default function DashboardPage() {
       return `${Math.floor(balls / 6)}.${balls % 6}`;
     };
 
-    const updateMatchArray = (prevMatches: MatchData[]) => 
+    const updateMatchArray = (prevMatches: MatchData[]) =>
       prevMatches.map(match => {
         if (match._id === updatedMatchData.matchId) {
           console.log(`[Pusher] Updating local state for match: ${match.matchCode}`);
@@ -181,8 +181,8 @@ export default function DashboardPage() {
       myMatches: updateMatchArray(prevData.myMatches),
       invitedMatches: updateMatchArray(prevData.invitedMatches),
       // Also update live count
-      liveMatches: (prevData.myMatches.filter(m => m.status === 'live').length + 
-                    prevData.invitedMatches.filter(m => m.status === 'live').length)
+      liveMatches: (prevData.myMatches.filter(m => m.status === 'live').length +
+        prevData.invitedMatches.filter(m => m.status === 'live').length)
     }));
   }, []);
 
@@ -190,38 +190,44 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user || !user.id) return;
     const channelName = `private-user-${user.id}`;
-    
+
     let channel: any;
-    try {
-      channel = pusherClient.subscribe(channelName);
 
-      channel.bind('pusher:subscription_succeeded', () => {
-        console.log(`[Pusher] Successfully subscribed to ${channelName}`);
-      });
-      channel.bind('pusher:subscription_error', (status: any) => {
-        console.error(`[Pusher] Failed to subscribe to ${channelName}:`, status);
-      });
+    channel = pusherClient.subscribe(channelName);
+    const handleMatchUpdate = (data: any) => {
+      updateMatchInState(data);
+    };
 
-      channel.bind('match-updated', (data: any) => {
-        console.log('[Pusher] Received match-updated event:', data);
-        toast('Match scores updated!', { icon: '🏏', duration: 2000 });
+    channel.bind('match-updated', handleMatchUpdate);
 
-        // --- THIS IS THE FIX ---
-        // Call our new function to update state locally
-        updateMatchInState(data);
-        // REMOVED: fetchMatches(); // This was causing the reload
-        // --- END OF FIX ---
-      });
-    } catch (e) {
-      console.error('Failed to subscribe to Pusher:', e);
-    }
+
+
+    // channel.bind('pusher:subscription_succeeded', () => {
+    //   console.log(`[Pusher] Successfully subscribed to ${channelName}`);
+    // });
+    // channel.bind('pusher:subscription_error', (status: any) => {
+    //   console.error(`[Pusher] Failed to subscribe to ${channelName}:`, status);
+    // });
+
+    // channel.bind('match-updated', (data: any) => {
+    //   console.log('[Pusher] Received match-updated event:', data);
+    //   toast('Match scores updated!', { icon: '🏏', duration: 2000 });
+
+    //   // --- THIS IS THE FIX ---
+    //   // Call our new function to update state locally
+    //   updateMatchInState(data);
+    //   // REMOVED: fetchMatches(); // This was causing the reload
+    //   // --- END OF FIX ---
+    // });
+
 
     return () => {
       if (channel) {
+        channel.unbind('match-updated', handleMatchUpdate);
         pusherClient.unsubscribe(channelName);
       }
     };
-  }, [user, updateMatchInState]); // Dependency is correct
+  }, [user?.id,]); // Dependency is correct
 
   const handleLogout = async () => {
     // ... (logic remains the same)
@@ -245,7 +251,7 @@ export default function DashboardPage() {
     return null;
   }
 
-  
+
 
   return (
     <>
@@ -254,7 +260,7 @@ export default function DashboardPage() {
         <Navbar user={user} onLogout={handleLogout} />
 
         <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-7xl">
-          <WelcomeBanner 
+          <WelcomeBanner
             userName={user.name}
             totalMatches={totalMatches}
             liveMatches={liveMatches}

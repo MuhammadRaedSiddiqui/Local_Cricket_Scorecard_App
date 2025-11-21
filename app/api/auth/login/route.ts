@@ -3,6 +3,24 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { connectDB } from '@/lib/db';
 import User from '@/models/User';
+import * as Sentry from "@sentry/nextjs";
+import winston from 'winston';
+
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.json(),
+  transports: [
+    new winston.transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'combined.log' }),
+  ],
+});
+
+
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.NODE_ENV,
+  tracesSampleRate: 0.1,
+});
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,16 +29,25 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email, password } = body;
 
-    if (!email || !password) {
+    if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) {
       return NextResponse.json(
         { error: 'Email and password are required' },
         { status: 400 }
       );
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const user = await User.findOne({ email: normalizedEmail }).select('+password');
     
-    if (!user) {
+    if (!user || typeof user.password !== 'string') {
+      if (user && typeof user.password !== 'string') {
+        logger.error('User record missing password hash', { userId: user._id.toString() });
+        Sentry.captureMessage('User record missing password hash', {
+          level: 'error',
+          extra: { userId: user._id.toString() },
+        });
+      }
       return NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 }
@@ -31,7 +58,7 @@ export async function POST(request: NextRequest) {
     
     if (!isPasswordValid) {
       return NextResponse.json(
-        { error: 'Invalid email or password' },
+        { error: 'Invalid password' },
         { status: 401 }
       );
     }
@@ -67,7 +94,8 @@ export async function POST(request: NextRequest) {
     return response;
 
   } catch (error) {
-    console.error('Login error:', error);
+    logger.error('Login error', { error });
+    Sentry.captureException(error);
     return NextResponse.json(
       { error: 'Failed to sign in. Please try again.' },
       { status: 500 }

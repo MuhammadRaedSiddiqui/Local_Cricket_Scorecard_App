@@ -84,7 +84,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     // CHANGED: normalize body to support { match: {...} } and flat body
     const raw = await request.json()
     const body = raw?.match ?? raw
-  
+
 
     const updateData: any = {}
     const before = {
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest, { params }: Params) {
         status: isDefined(body.status),
       },
     }
-    
+
 
     // Simple root fields
     if (isDefined(body.toss_winner)) updateData.toss_winner = body.toss_winner
@@ -233,7 +233,7 @@ export async function POST(request: NextRequest, { params }: Params) {
         target: updateData.target ?? before.target,
       },
     }
-   
+
 
     const updatedMatch = await Match.findByIdAndUpdate(
       params.id,
@@ -263,6 +263,8 @@ export async function POST(request: NextRequest, { params }: Params) {
       // We are now sending the complete score details for both teams.
       const payload = {
         matchId: updatedMatch._id.toString(),
+        idempotencyKey: crypto.randomUUID(), // Add this
+
         status: updatedMatch.status,
         teamOne: {
           total_score: updatedMatch.teamOne.total_score,
@@ -280,13 +282,13 @@ export async function POST(request: NextRequest, { params }: Params) {
       const triggers = Array.from(allParticipantIds).map(userId => {
         const channelName = `private-user-${userId}`;
         const eventName = 'match-updated';
-        
+
         console.log(`[Pusher] Triggering event '${eventName}' on channel '${channelName}'`);
-        
+
         // Send the new, richer payload
         return pusherServer.trigger(channelName, eventName, payload);
       });
-      
+
       await Promise.allSettled(triggers); // Use allSettled
       console.log(`[Pusher] Successfully triggered events for ${allParticipantIds.size} users.`);
 
@@ -318,7 +320,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       runs_conceded: p.runs_conceded || 0,
       is_out: p.is_out || false,
     }))
-    
+
     console.log('✅ [API] Match updated - verifying player stats:', JSON.stringify({
       teamOne: {
         players_count: updatedMatch.teamOne?.players?.length || 0,
@@ -392,7 +394,7 @@ export async function POST(request: NextRequest, { params }: Params) {
         },
       },
     }
-    
+
 
     // Warnings when totals changed but per-player aggregates did not
     const warnIfTotalsChangedButPlayersDidNot = (which: 'teamOne' | 'teamTwo') => {
@@ -420,14 +422,14 @@ export async function POST(request: NextRequest, { params }: Params) {
       target: updatedMatch.target,
       scoringState: updatedMatch.scoringState
         ? {
-            currentInnings: updatedMatch.scoringState.currentInnings,
-            selectedBatsman1: updatedMatch.scoringState.selectedBatsman1,
-            selectedBatsman2: updatedMatch.scoringState.selectedBatsman2,
-            selectedBowler: updatedMatch.scoringState.selectedBowler,
-          }
+          currentInnings: updatedMatch.scoringState.currentInnings,
+          selectedBatsman1: updatedMatch.scoringState.selectedBatsman1,
+          selectedBatsman2: updatedMatch.scoringState.selectedBatsman2,
+          selectedBowler: updatedMatch.scoringState.selectedBowler,
+        }
         : null,
     }
-   
+
 
     return NextResponse.json({
       success: true,

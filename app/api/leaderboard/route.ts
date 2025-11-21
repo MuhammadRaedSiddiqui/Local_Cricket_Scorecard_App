@@ -9,12 +9,10 @@ export async function GET(request: NextRequest) {
   try {
     await connectDB()
 
-    // ✅ SINGLE aggregation pipeline with $facet
     const [result] = await Match.aggregate([
       { $match: { status: 'completed' } },
       {
         $facet: {
-          // Team stats
           teamStats: [
             {
               $project: {
@@ -159,12 +157,12 @@ export async function GET(request: NextRequest) {
             },
           ],
 
-          // Total matches count
           totalMatches: [{ $count: 'count' }],
         },
       },
-    ])
+    ]);
 
+   
     return NextResponse.json({
       battingStats: result.battingStats || [],
       bowlingStats: result.bowlingStats || [],

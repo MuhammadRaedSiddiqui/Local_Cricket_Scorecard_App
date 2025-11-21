@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { jwtVerify } from 'jose'
 
 // Run on the Edge
 export const runtime = 'experimental-edge'
@@ -18,7 +19,7 @@ const publicOnlyRoutes = [
   '/register',
 ]
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
   const token = request.cookies.get('auth-token')?.value
 
@@ -26,10 +27,17 @@ export function middleware(request: NextRequest) {
   const isPublicOnlyRoute = publicOnlyRoutes.some(route => path.startsWith(route))
 
   // Redirect unauthenticated users from protected routes
-  if (isProtectedRoute && !token) {
+  if (isProtectedRoute) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('from', path)
-    return NextResponse.redirect(loginUrl)
+    if (!token) {
+      return NextResponse.redirect(loginUrl)
+    }
+    try {
+      await jwtVerify(token, new TextEncoder().encode(process.env.JWT_SECRET!))
+    } catch {
+      return NextResponse.redirect(loginUrl)
+    }
   }
 
   // Redirect authenticated users away from public-only routes

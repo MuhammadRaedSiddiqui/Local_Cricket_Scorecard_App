@@ -42,6 +42,7 @@ const userSchema = new Schema<IUser>({
 }, {
   timestamps: true
 });
+userSchema.index({ email: 1 });
 
 userSchema.methods.comparePassword = async function(password: string) {
   return bcrypt.compare(password, this.password);

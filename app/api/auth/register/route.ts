@@ -3,16 +3,25 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { connectDB } from '@/lib/db';
 import User from '@/models/User';
+import { z } from "zod"
+
+const RegisterSchema = z.object({
+  name: z.string().min(2).max(50),
+  email: z.string().email(),
+  password: z.string().min(8),
+});
 
 export async function POST(request: NextRequest) {
   try {
-    // Connect to database
-    await connectDB();
-    
-    // Get request body
     const body = await request.json();
-    const { name, email, password } = body;
+    const result = RegisterSchema.safeParse(body);
+    console.log(result)
 
+    if (!result.success) {
+      return NextResponse.json({ error: result.error.issues }, { status: 400 });
+    }
+
+    const { name, email, password } = result.data;
     // Validation
     if (!name || !email || !password) {
       return NextResponse.json(

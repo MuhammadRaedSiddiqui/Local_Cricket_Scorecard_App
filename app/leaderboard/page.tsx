@@ -17,13 +17,9 @@ async function getLeaderboardData() {
 
   try {
     const res = await fetch(`${baseUrl}/api/leaderboard`, {
-      // --- THIS IS THE FIX ---
-      // Revalidate this data every 3600 seconds (1 hour)
-      // This stops re-fetching on every request and serves a cached
-      // version, dramatically improving speed.
+      
       next: { revalidate: 3600 }
-      // REMOVED: cache: 'no-store'
-      // --- END OF FIX ---
+      
     });
 
     if (!res.ok) {
